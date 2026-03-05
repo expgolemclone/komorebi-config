@@ -22,11 +22,11 @@ komorebic stop 2>&1 | Out-Null
 Stop-Process -Name whkd -Force -ErrorAction SilentlyContinue
 Stop-Process -Name komorebi-bar -Force -ErrorAction SilentlyContinue
 Stop-Process -Name komorebi -Force -ErrorAction SilentlyContinue
-# auto-distribute.ps1 が動いている pwsh プロセスを探して停止する
+# distribute-windows.ps1 が動いている pwsh プロセスを探して停止する
 # （再起動時に旧プロセスが残らないようにするため）
 # pwsh.exe = PowerShell 7 のプロセス名
 Get-CimInstance Win32_Process -Filter "Name='pwsh.exe'" |
-    Where-Object { $_.CommandLine -like "*auto-distribute*" } |
+    Where-Object { $_.CommandLine -like "*distribute-windows*" } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 3
 
@@ -47,11 +47,11 @@ Start-Sleep -Seconds 1
 # komorebic --whkd 経由だとコンソール窓が出てしまうので、
 # Start-Process -WindowStyle Hidden を使って窓を出さずに起動する
 Start-Process whkd -WindowStyle Hidden
-# auto-distribute.ps1 をバックグラウンドで起動する
+# distribute-windows.ps1 をバックグラウンドで起動する
 # 新しいウィンドウを空いているワークスペースへ自動振り分けするスクリプト
 # pwsh (PowerShell 7) を使う理由: PS 5.1 では大きな JSON のパースに失敗するため
 # -WindowStyle Hidden で窓を出さずに裏で動かす
-Start-Process pwsh -ArgumentList "-ExecutionPolicy Bypass -File `"$PSScriptRoot\auto-distribute.ps1`"" -WindowStyle Hidden
+Start-Process pwsh -ArgumentList "-ExecutionPolicy Bypass -File `"$PSScriptRoot\distribute-windows.ps1`"" -WindowStyle Hidden
 Start-Sleep -Seconds 3
 
 # 確認

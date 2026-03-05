@@ -10,7 +10,7 @@
           },
           {
             "type": "command",
-            "command": "bash C:/Users/0000250059/.config/komorebi/scripts/check-encoding.sh",
+            "command": "bash C:/Users/0000250059/.config/komorebi/scripts/validate-encoding.sh",
             "timeout": 10000
           }
         ]

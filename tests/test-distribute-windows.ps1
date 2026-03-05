@@ -1,5 +1,5 @@
-# test-auto-distribute.ps1
-# auto-distribute.ps1 and restart.ps1 validation tests
+# test-distribute-windows.ps1
+# distribute-windows.ps1 と restart.ps1 の検証テスト
 
 $ErrorCount = 0
 $PassCount = 0
@@ -15,12 +15,12 @@ function Test-Check {
     }
 }
 
-Write-Host "=== auto-distribute.ps1 tests ===" -ForegroundColor Cyan
+Write-Host "=== distribute-windows.ps1 tests ===" -ForegroundColor Cyan
 Write-Host ""
 
-# Test 1: file exists
-$scriptPath = "$PSScriptRoot\..\scripts\auto-distribute.ps1"
-Test-Check "File exists" (Test-Path $scriptPath) "auto-distribute.ps1 not found"
+# Test 1: ファイルが存在するか
+$scriptPath = "$PSScriptRoot\..\scripts\distribute-windows.ps1"
+Test-Check "File exists" (Test-Path $scriptPath) "distribute-windows.ps1 not found"
 
 # Test 2: no syntax errors
 $syntaxErrors = $null
@@ -55,12 +55,13 @@ Write-Host ""
 $restartPath = "$PSScriptRoot\..\scripts\restart.ps1"
 $restartContent = Get-Content $restartPath -Raw -Encoding UTF8
 
-Test-Check "restart.ps1: background launch" ($restartContent -match "auto-distribute") "auto-distribute launch missing"
-Test-Check "restart.ps1: hidden window" ($restartContent -match "Hidden.*auto-distribute|auto-distribute.*Hidden") "WindowStyle Hidden launch missing"
-# pwsh (PowerShell 7) is required for reliable JSON parsing of large komorebic state
-Test-Check "restart.ps1: uses pwsh" ($restartContent -match "Start-Process pwsh.*auto-distribute") "should use pwsh instead of powershell"
-# The stop logic spans multiple lines, so use (?s) to make '.' match newlines too
-Test-Check "restart.ps1: stop process" ($restartContent -match "(?s)auto-distribute.*Stop-Process") "auto-distribute stop process missing"
+# restart.ps1 が distribute-windows.ps1 をバックグラウンドで起動しているか確認
+Test-Check "restart.ps1: background launch" ($restartContent -match "distribute-windows") "distribute-windows launch missing"
+Test-Check "restart.ps1: hidden window" ($restartContent -match "Hidden.*distribute-windows|distribute-windows.*Hidden") "WindowStyle Hidden launch missing"
+# pwsh (PowerShell 7) を使っているか（PS 5.1 では大きな JSON パースに失敗するため必須）
+Test-Check "restart.ps1: uses pwsh" ($restartContent -match "Start-Process pwsh.*distribute-windows") "should use pwsh instead of powershell"
+# 停止処理が含まれているか（(?s) で改行をまたいでマッチさせる）
+Test-Check "restart.ps1: stop process" ($restartContent -match "(?s)distribute-windows.*Stop-Process") "distribute-windows stop process missing"
 
 # Test 6: restart.ps1 syntax check
 $restartErrors = $null

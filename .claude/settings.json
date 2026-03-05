@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -ExecutionPolicy Bypass -File 'C:/Users/0000250059/.config/komorebi/restart.ps1' > /dev/null 2>&1 && echo 'komorebi restarted'",
+            "timeout": 30000
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LGUG2Z/komorebi/v0.1.40/schema.json",
+  "app_specific_configuration_path": "$Env:KOMOREBI_CONFIG_HOME/applications.json",
+  "ignore_rules": [
+    {
+      "kind": "Title",
+      "id": "選択UsbWatchDog",
+      "matching_strategy": "Equals"
+    },
+    {
+      "kind": "Exe",
+      "id": "wmplayer.exe",
+      "matching_strategy": "Equals"
+    }
+  ],
+  "window_hiding_behaviour": "Cloak",
+  "cross_monitor_move_behaviour": "Insert",
+  "display_index_preferences": {
+    "0": "1176502024626",
+    "1": "11260M4700562",
+    "2": "3CQ4230MDK"
+  },
+  "default_workspace_padding": 0,
+  "default_container_padding": 0,
+  "mouse_follows_focus": false,
+  "border": true,
+  "border_width": 8,
+  "border_offset": -1,
+  "border_implementation": "Windows",
+  "border_colours": {
+    "single": "#00FFFF",
+    "stack": "#00FFFF",
+    "monocle": "#00FFFF",
+    "floating": "#00FFFF",
+    "unfocused": "#565E65"
+  },
+  "monitors": [
+    {
+      "workspaces": [
+        { "name": "I", "layout": "Rows" },
+        { "name": "II", "layout": "Rows" },
+        { "name": "III", "layout": "Rows" },
+        { "name": "IV", "layout": "Rows" },
+        { "name": "V", "layout": "Rows" },
+        { "name": "VI", "layout": "Rows" },
+        { "name": "VII", "layout": "Rows" }
+      ]
+    },
+    {
+      "workspaces": [
+        { "name": "I", "layout": "Rows" },
+        { "name": "II", "layout": "Rows" },
+        { "name": "III", "layout": "Rows" },
+        { "name": "IV", "layout": "Rows" },
+        { "name": "V", "layout": "Rows" },
+        { "name": "VI", "layout": "Rows" },
+        { "name": "VII", "layout": "Rows" }
+      ]
+    },
+    {
+      "workspaces": [
+        { "name": "I", "layout": "Rows" },
+        { "name": "II", "layout": "Rows" },
+        { "name": "III", "layout": "Rows" },
+        { "name": "IV", "layout": "Rows" },
+        { "name": "V", "layout": "Rows" },
+        { "name": "VI", "layout": "Rows" },
+        { "name": "VII", "layout": "Rows" }
+      ]
+    }
+  ]
+}

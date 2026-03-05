@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -ExecutionPolicy Bypass -File 'C:/Users/0000250059/.config/komorebi/scripts/restart.ps1' > /dev/null 2>&1 && echo 'komorebi restarted'",
+            "timeout": 30000
+          },
+          {
+            "type": "command",
+            "command": "bash C:/Users/0000250059/.config/komorebi/scripts/validate-encoding.sh",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}

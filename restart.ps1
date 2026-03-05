@@ -32,12 +32,15 @@ if ($remaining) {
 }
 
 # 再起動
-# komorebi（ウィンドウマネージャー）、komorebi-bar（ステータスバー）、
-# whkd（キーボードショートカット）を komorebic コマンドで一括起動する。
-# --whkd と --bar オプションをつけると、komorebi が whkd と bar も一緒に立ち上げてくれる。
-# whkd の設定ファイルの場所（WHKD_CONFIG_HOME）は上の方でユーザーレベル環境変数として
-# Windows に永続保存してあるので、komorebic 経由で起動しても whkd が設定を見つけられる。
-komorebic start --whkd --bar 2>&1
+# komorebi（ウィンドウマネージャー）と komorebi-bar（ステータスバー）を起動する。
+# whkd（キーボードショートカット）は --whkd で一緒に起動すると
+# コンソール窓が表示されてしまうので、別途 Start-Process で非表示起動する。
+komorebic start --bar 2>&1
+Start-Sleep -Seconds 1
+# whkd を「ウィンドウを非表示」で起動する
+# komorebic --whkd 経由だとコンソール窓が出てしまうので、
+# Start-Process -WindowStyle Hidden を使って窓を出さずに起動する
+Start-Process whkd -WindowStyle Hidden
 Start-Sleep -Seconds 3
 
 # 確認

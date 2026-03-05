@@ -22,6 +22,11 @@ komorebic stop 2>&1 | Out-Null
 Stop-Process -Name whkd -Force -ErrorAction SilentlyContinue
 Stop-Process -Name komorebi-bar -Force -ErrorAction SilentlyContinue
 Stop-Process -Name komorebi -Force -ErrorAction SilentlyContinue
+# auto-distribute.ps1 が動いている PowerShell プロセスを探して停止する
+# （再起動時に旧プロセスが残らないようにするため）
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
+    Where-Object { $_.CommandLine -like "*auto-distribute*" } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 3
 
 # 残っていないか確認
@@ -41,6 +46,10 @@ Start-Sleep -Seconds 1
 # komorebic --whkd 経由だとコンソール窓が出てしまうので、
 # Start-Process -WindowStyle Hidden を使って窓を出さずに起動する
 Start-Process whkd -WindowStyle Hidden
+# auto-distribute.ps1 をバックグラウンドで起動する
+# 新しいウィンドウを空いているワークスペースへ自動振り分けするスクリプト
+# -WindowStyle Hidden で窓を出さずに裏で動かす
+Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -File `"$PSScriptRoot\auto-distribute.ps1`"" -WindowStyle Hidden
 Start-Sleep -Seconds 3
 
 # 確認

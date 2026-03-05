@@ -6,6 +6,11 @@
 #   外部スクリプトに通知できる。このスクリプトはその通知を受け取り、
 #   新しいウィンドウ（Manage イベント）が来たら、一番空いているワークスペースへ移動させる。
 
+# komorebic state の出力は UTF-8 だが、PowerShell はデフォルトで別のエンコーディングを使う。
+# これを明示的に UTF-8 に揃えないと、日本語ウィンドウタイトル等を含む JSON のパースに失敗する。
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 # パイプの名前（komorebi とこのスクリプトの間の通信チャンネルの名前）
 $PIPE_NAME = "komorebi-auto-distribute"
 
@@ -16,10 +21,12 @@ komorebic subscribe-pipe $PIPE_NAME
 # 無限ループ: パイプが切れても再接続してイベントを受け取り続ける
 while ($true) {
     try {
-        # Named Pipe に接続する（komorebi がイベントを流してくるパイプ）
-        $pipe = [System.IO.Pipes.NamedPipeClientStream]::new(".", $PIPE_NAME, [System.IO.Pipes.PipeDirection]::In)
-        # 5秒以内に接続できなければタイムアウト
-        $pipe.Connect(5000)
+        # Named Pipe をサーバーとして作成する
+        # komorebi が「クライアント」としてこのパイプに接続し、イベントを書き込んでくる
+        # こちらは「サーバー」としてパイプを作り、komorebi からの接続を待つ
+        $pipe = [System.IO.Pipes.NamedPipeServerStream]::new($PIPE_NAME, [System.IO.Pipes.PipeDirection]::In)
+        # komorebi が接続してくるまで待機（ブロッキング）
+        $pipe.WaitForConnection()
         # パイプから文字列を1行ずつ読むためのリーダー
         $reader = [System.IO.StreamReader]::new($pipe)
 
@@ -42,7 +49,8 @@ while ($true) {
             # komorebi の現在の状態（どのモニターにどのワークスペースがあり、
             # 各ワークスペースに何個のウィンドウがあるか）を JSON で取得
             try {
-                $stateJson = komorebic state 2>$null
+                # komorebic state は複数行で JSON を出力するので、-join で1つの文字列に結合する
+                $stateJson = (komorebic state 2>$null) -join "`n"
                 $state = $stateJson | ConvertFrom-Json
             } catch {
                 continue

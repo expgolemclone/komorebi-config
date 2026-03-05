@@ -36,12 +36,16 @@ Test-Check "unsubscribe-pipe call" ($content -match "unsubscribe-pipe") "unsubsc
 Test-Check "Manage event filter" ($content -match 'Manage') "Manage event filter missing"
 Test-Check "komorebic state call" ($content -match "komorebic state") "komorebic state call missing"
 Test-Check "move-to-workspace call" ($content -match "move-to-workspace") "move-to-workspace call missing"
-Test-Check "NamedPipeClientStream usage" ($content -match "NamedPipeClientStream") "Named Pipe connection missing"
+# komorebi is the client; our script must create the pipe as a server
+Test-Check "NamedPipeServerStream usage" ($content -match "NamedPipeServerStream") "Named Pipe server missing"
 Test-Check "JSON parse" ($content -match "ConvertFrom-Json") "ConvertFrom-Json call missing"
 
 # Test 4: move condition logic
 Test-Check "Move condition: container count >= 2" ($content -match '\$currentCount\s*-ge\s*2') "currentCount >= 2 condition missing"
 Test-Check "Move condition: different workspace" ($content -match '\$minIdx\s*-ne\s*\$focusedIdx') "minIdx -ne focusedIdx condition missing"
+
+# Test 4b: UTF-8 encoding is set (required for parsing komorebic state with Japanese titles)
+Test-Check "UTF-8 OutputEncoding" ($content -match 'OutputEncoding.*UTF8') "UTF-8 OutputEncoding setting missing"
 
 # Test 5: restart.ps1 changes
 Write-Host ""
@@ -53,6 +57,8 @@ $restartContent = Get-Content $restartPath -Raw -Encoding UTF8
 
 Test-Check "restart.ps1: background launch" ($restartContent -match "auto-distribute") "auto-distribute launch missing"
 Test-Check "restart.ps1: hidden window" ($restartContent -match "Hidden.*auto-distribute|auto-distribute.*Hidden") "WindowStyle Hidden launch missing"
+# pwsh (PowerShell 7) is required for reliable JSON parsing of large komorebic state
+Test-Check "restart.ps1: uses pwsh" ($restartContent -match "Start-Process pwsh.*auto-distribute") "should use pwsh instead of powershell"
 # The stop logic spans multiple lines, so use (?s) to make '.' match newlines too
 Test-Check "restart.ps1: stop process" ($restartContent -match "(?s)auto-distribute.*Stop-Process") "auto-distribute stop process missing"
 

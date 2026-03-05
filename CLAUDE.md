@@ -1,5 +1,5 @@
-# rules
-## after edit any files
-意図通りに正しく動作するか全項目を省略せずにtest scriptを作ってテスト.
+実装する前にテストスクリプトを`\.tests`に追加
+テストスクリプトは消さない.
+
 commit and push .
 

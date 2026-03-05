@@ -2,7 +2,7 @@
 # Tests for check-encoding.sh
 # Run from the project root.
 
-SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/check-encoding.sh"
+SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/scripts/check-encoding.sh"
 TMPDIR_TEST=$(mktemp -d)
 trap 'rm -rf "$TMPDIR_TEST"' EXIT
 

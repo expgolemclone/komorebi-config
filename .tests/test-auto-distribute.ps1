@@ -19,7 +19,7 @@ Write-Host "=== auto-distribute.ps1 tests ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Test 1: file exists
-$scriptPath = "$PSScriptRoot\auto-distribute.ps1"
+$scriptPath = "$PSScriptRoot\..\scripts\auto-distribute.ps1"
 Test-Check "File exists" (Test-Path $scriptPath) "auto-distribute.ps1 not found"
 
 # Test 2: no syntax errors
@@ -52,7 +52,7 @@ Write-Host ""
 Write-Host "=== restart.ps1 tests ===" -ForegroundColor Cyan
 Write-Host ""
 
-$restartPath = "$PSScriptRoot\restart.ps1"
+$restartPath = "$PSScriptRoot\..\scripts\restart.ps1"
 $restartContent = Get-Content $restartPath -Raw -Encoding UTF8
 
 Test-Check "restart.ps1: background launch" ($restartContent -match "auto-distribute") "auto-distribute launch missing"

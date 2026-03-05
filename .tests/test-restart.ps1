@@ -13,7 +13,8 @@ Write-Host "`n=== restart.ps1 test ===" -ForegroundColor Cyan
 # --- Test 1: restart.ps1 を実行 ---
 Write-Host "`n[Test 1] restart.ps1 を実行..." -ForegroundColor Yellow
 try {
-    & "$PSScriptRoot\restart.ps1"
+    # テストファイルは .tests/ にあるので、親フォルダの scripts/ を参照する
+    & "$PSScriptRoot\..\scripts\restart.ps1"
     Write-Host "  PASS: restart.ps1 が正常に実行された" -ForegroundColor Green
 } catch {
     Write-Host "  FAIL: restart.ps1 の実行に失敗: $_" -ForegroundColor Red

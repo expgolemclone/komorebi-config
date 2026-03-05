@@ -1,8 +1,11 @@
-.shell powershell
+# ホットキーで実行するコマンドのシェルを指定する。
+# cmd は起動が速い（50ms 未満）ので、キーボードフックへの負荷が小さい。
+# powershell は起動に 500ms〜2s かかり、フックのタイムアウトを誘発しやすい。
+.shell cmd
 
 # Reload whkd configuration
-# alt + o                 : taskkill /f /im whkd.exe && start /b whkd # if shell is cmd
-alt + o                 : taskkill /f /im whkd.exe; Start-Process whkd -WindowStyle hidden # if shell is pwsh / powershell
+# whkd を強制終了してからバックグラウンドで再起動する（設定ファイルの再読み込み）
+alt + o                 : taskkill /f /im whkd.exe && start /b whkd
 alt + shift + o         : komorebic reload-configuration
 
 alt + i                 : komorebic toggle-shortcuts

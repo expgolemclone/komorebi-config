@@ -8,12 +8,13 @@
   "border": true,
   "border_width": 8,
   "border_offset": -1,
-  "theme": {
-    "palette": "Base16",
-    "name": "Ashes",
-    "focused_border": "#40E0D0",
-    "unfocused_border": "Base03",
-    "bar_accent": "Base0D"
+  "border_implementation": "Windows",
+  "border_colours": {
+    "single": "#B0E0E6",
+    "stack": "#B0E0E6",
+    "monocle": "#B0E0E6",
+    "floating": "#B0E0E6",
+    "unfocused": "#565E65"
   },
   "monitors": [
     {

@@ -11,7 +11,7 @@
   "theme": {
     "palette": "Base16",
     "name": "Ashes",
-    "focused_border": "#00BFFF",
+    "focused_border": "#40E0D0",
     "unfocused_border": "Base03",
     "bar_accent": "Base0D"
   },

@@ -5,10 +5,10 @@
 $config = Get-Content "$env:KOMOREBI_CONFIG_HOME\komorebi.json" | ConvertFrom-Json
 
 # Check border width
-if ($config.border_width -eq 20) {
-    Write-Host "PASS: border_width is 20" -ForegroundColor Green
+if ($config.border_width -eq 8) {
+    Write-Host "PASS: border_width is 8" -ForegroundColor Green
 } else {
-    Write-Host "FAIL: border_width is $($config.border_width), expected 20" -ForegroundColor Red
+    Write-Host "FAIL: border_width is $($config.border_width), expected 8" -ForegroundColor Red
 }
 
 # Check border colors

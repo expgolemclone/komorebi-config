@@ -6,7 +6,7 @@
   "default_workspace_padding": 0,
   "default_container_padding": 0,
   "border": true,
-  "border_width": 20,
+  "border_width": 8,
   "border_offset": -1,
   "border_implementation": "Windows",
   "border_colours": {

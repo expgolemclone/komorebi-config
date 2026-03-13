@@ -30,28 +30,6 @@
       }
     },
     {
-      "Media": {
-        "enable": false
-      }
-    },
-    {
-      "Storage": {
-        "enable": false
-      }
-    },
-    {
-      "Memory": {
-        "enable": false
-      }
-    },
-    {
-      "Network": {
-        "enable": false,
-        "show_activity": true,
-        "show_total_activity": true
-      }
-    },
-    {
       "Date": {
         "enable": true,
         "format": "DayDateMonthYear"

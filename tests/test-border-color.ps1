@@ -1,17 +1,17 @@
 #!/usr/bin/env pwsh
-# テスト: フォーカス中ウィンドウのボーダー色が水色 (#87CEEB) かどうかを確認する
+# テスト: フォーカス中ウィンドウのボーダー色がシアン (#00FFFF) かどうかを確認する
 # スクリーンショットを撮り、ボーダー付近のピクセル色をスポイトのように取得して判定する
 
 # .NETのGUI系ライブラリを読み込む（スクリーンショット撮影に必要）
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# 期待するボーダー色を定義（水色 = #B0E0E6 / PowderBlue）
-# R(赤)=0xB0, G(緑)=0xE0, B(青)=0xE6 の組み合わせ
-$expectedHex = "#B0E0E6"
-$expectedR = 0xB0
-$expectedG = 0xE0
-$expectedB = 0xE6
+# 期待するボーダー色を定義（シアン = #00FFFF / Cyan）
+# R(赤)=0x00, G(緑)=0xFF, B(青)=0xFF の組み合わせ
+$expectedHex = "#00FFFF"
+$expectedR = 0x00
+$expectedG = 0xFF
+$expectedB = 0xFF
 
 # --- スクリーンショットを撮る ---
 # 画面全体を1枚の画像としてメモリ上にキャプチャする

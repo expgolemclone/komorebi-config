@@ -18,6 +18,11 @@ $PIPE_NAME = "komorebi-auto-distribute"
 komorebic unsubscribe-pipe $PIPE_NAME 2>&1 | Out-Null
 komorebic subscribe-pipe $PIPE_NAME
 
+# 再接続の設定: 連続失敗時はエクスポネンシャルバックオフで待機し、上限に達したら終了する
+$maxRetries = 10
+$retryCount = 0
+$baseDelay = 2  # 初回待機秒数
+
 # 無限ループ: パイプが切れても再接続してイベントを受け取り続ける
 while ($true) {
     try {
@@ -99,9 +104,17 @@ while ($true) {
 
         $reader.Close()
         $pipe.Close()
+        # 正常にパイプ通信できたらリトライカウントをリセット
+        $retryCount = 0
     } catch {
-        # パイプ接続に失敗した場合（komorebi がまだ起動していない等）、
-        # 少し待ってから再接続を試みる
-        Start-Sleep -Seconds 2
+        $retryCount++
+        if ($retryCount -ge $maxRetries) {
+            Write-Error "パイプ接続に $maxRetries 回連続で失敗したため終了します"
+            exit 1
+        }
+        # エクスポネンシャルバックオフ: 2s, 4s, 8s, 16s, ... (最大60秒)
+        $delay = [Math]::Min($baseDelay * [Math]::Pow(2, $retryCount - 1), 60)
+        Write-Warning "パイプ接続失敗 ($retryCount/$maxRetries)。${delay}秒後に再接続..."
+        Start-Sleep -Seconds $delay
     }
 }

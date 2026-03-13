@@ -1,6 +1,6 @@
 # test-border-style.ps1
-# Border color and width verification
-# Expected: bright cyan (#00FFFF), width 20
+# Border style verification (color, width, implementation)
+# Expected: bright cyan (#00FFFF), width 8, Windows implementation
 
 $config = Get-Content "$env:KOMOREBI_CONFIG_HOME\komorebi.json" | ConvertFrom-Json
 
@@ -21,4 +21,11 @@ foreach ($target in $targets) {
     } else {
         Write-Host "FAIL: $target color is $($colors.$target), expected $expectedColor" -ForegroundColor Red
     }
+}
+
+# Check border implementation
+if ($config.border_implementation -eq "Windows") {
+    Write-Host "PASS: border_implementation is Windows" -ForegroundColor Green
+} else {
+    Write-Host "FAIL: border_implementation is $($config.border_implementation), expected Windows" -ForegroundColor Red
 }

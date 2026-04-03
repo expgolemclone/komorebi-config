@@ -7,7 +7,7 @@ CONFIG = Path(__file__).resolve().parent.parent / "komorebi.json"
 
 VALID_LAYOUTS = {
     "BSP",
-    "Columns",
+    "Rows",
     "Rows",
     "VerticalStack",
     "HorizontalStack",
@@ -51,6 +51,6 @@ def test_all_layouts_are_valid():
 def test_current_layout_is_columns():
     cfg = _load_config()
     for ws in _all_workspaces(cfg):
-        assert ws.get("layout") == "Columns", (
-            f"Workspace {ws.get('name')} uses {ws.get('layout')}, expected Columns"
+        assert ws.get("layout") == "Rows", (
+            f"Workspace {ws.get('name')} uses {ws.get('layout')}, expected Rows"
         )

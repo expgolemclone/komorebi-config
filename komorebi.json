@@ -37,35 +37,35 @@
   "monitors": [
     {
       "workspaces": [
-        { "name": "I", "layout": "Rows" },
-        { "name": "II", "layout": "Rows" },
-        { "name": "III", "layout": "Rows" },
-        { "name": "IV", "layout": "Rows" },
-        { "name": "V", "layout": "Rows" },
-        { "name": "VI", "layout": "Rows" },
-        { "name": "VII", "layout": "Rows" }
+        { "name": "I", "layout": "Columns" },
+        { "name": "II", "layout": "Columns" },
+        { "name": "III", "layout": "Columns" },
+        { "name": "IV", "layout": "Columns" },
+        { "name": "V", "layout": "Columns" },
+        { "name": "VI", "layout": "Columns" },
+        { "name": "VII", "layout": "Columns" }
       ]
     },
     {
       "workspaces": [
-        { "name": "I", "layout": "Rows" },
-        { "name": "II", "layout": "Rows" },
-        { "name": "III", "layout": "Rows" },
-        { "name": "IV", "layout": "Rows" },
-        { "name": "V", "layout": "Rows" },
-        { "name": "VI", "layout": "Rows" },
-        { "name": "VII", "layout": "Rows" }
+        { "name": "I", "layout": "Columns" },
+        { "name": "II", "layout": "Columns" },
+        { "name": "III", "layout": "Columns" },
+        { "name": "IV", "layout": "Columns" },
+        { "name": "V", "layout": "Columns" },
+        { "name": "VI", "layout": "Columns" },
+        { "name": "VII", "layout": "Columns" }
       ]
     },
     {
       "workspaces": [
-        { "name": "I", "layout": "Rows" },
-        { "name": "II", "layout": "Rows" },
-        { "name": "III", "layout": "Rows" },
-        { "name": "IV", "layout": "Rows" },
-        { "name": "V", "layout": "Rows" },
-        { "name": "VI", "layout": "Rows" },
-        { "name": "VII", "layout": "Rows" }
+        { "name": "I", "layout": "Columns" },
+        { "name": "II", "layout": "Columns" },
+        { "name": "III", "layout": "Columns" },
+        { "name": "IV", "layout": "Columns" },
+        { "name": "V", "layout": "Columns" },
+        { "name": "VI", "layout": "Columns" },
+        { "name": "VII", "layout": "Columns" }
       ]
     }
   ]

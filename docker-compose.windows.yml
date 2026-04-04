@@ -16,6 +16,7 @@ services:
     volumes:
       - ./:/shared
       - win-storage:/storage
+      - ./Win11.iso:/boot.iso
     stop_grace_period: 120s
 
 volumes:

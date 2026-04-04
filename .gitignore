@@ -14,3 +14,5 @@
 !scripts/**
 !tests/
 !tests/**
+
+__pycache__/

@@ -15,4 +15,8 @@ services:
       - "3389:3389"
     volumes:
       - ./:/shared
+      - win-storage:/storage
     stop_grace_period: 120s
+
+volumes:
+  win-storage:

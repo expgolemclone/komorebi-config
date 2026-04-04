@@ -1,8 +1,8 @@
 # ユーザー環境変数として永続的に設定（Windowsの「システム環境変数」に書き込む）
 # こうすることで、このスクリプト以外から起動されたプロセス（whkd など）でも
 # 設定ファイルの場所を見つけられるようになる
-[System.Environment]::SetEnvironmentVariable("KOMOREBI_CONFIG_HOME", "C:\Users\0000250059\.config\komorebi", "User")
-[System.Environment]::SetEnvironmentVariable("WHKD_CONFIG_HOME", "C:\Users\0000250059\.config\komorebi", "User")
+[System.Environment]::SetEnvironmentVariable("KOMOREBI_CONFIG_HOME", "$env:USERPROFILE\.config\komorebi", "User")
+[System.Environment]::SetEnvironmentVariable("WHKD_CONFIG_HOME", "$env:USERPROFILE\.config\komorebi", "User")
 
 # Low-level keyboard hook のタイムアウトを延長（デフォルト ~300ms → 5000ms）
 # テキストボックスにフォーカスした際、IME などの処理でフックの応答が遅れると
@@ -11,8 +11,8 @@
 Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "LowLevelHooksTimeout" -Value 5000 -Type DWord -Force
 
 # 設定ファイルの場所を環境変数で指定（現セッション用）
-$Env:KOMOREBI_CONFIG_HOME = "C:\Users\0000250059\.config\komorebi"
-$Env:WHKD_CONFIG_HOME = "C:\Users\0000250059\.config\komorebi"
+$Env:KOMOREBI_CONFIG_HOME = "$env:USERPROFILE\.config\komorebi"
+$Env:WHKD_CONFIG_HOME = "$env:USERPROFILE\.config\komorebi"
 
 # komorebi と whkd の実行ファイルがあるフォルダを PATH に追加して、コマンドとして使えるようにする
 $Env:Path = "C:\Program Files\komorebi\bin;C:\Program Files\whkd\bin;" + $Env:Path

@@ -1,6 +1,8 @@
 *
 
 !.gitignore
+!.claude/
+!.claude/**
 !CLAUDE.md
 !README.md
 !komorebi.json

@@ -1,4 +1,4 @@
-# auto-distribute.ps1
+﻿# auto-distribute.ps1
 # 新規ウィンドウが開いたとき、最もウィンドウ数が少ないワークスペースへ自動移動する
 #
 # 仕組み:

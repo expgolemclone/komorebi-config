@@ -1,4 +1,4 @@
-# test-whkdrc-workspace-keys.ps1
+﻿# test-whkdrc-workspace-keys.ps1
 # whkdrc のワークスペースキーが komorebi.json のワークスペース数と一致するか検証する
 
 $configPath = "$PSScriptRoot\..\komorebi.json"

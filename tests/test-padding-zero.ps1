@@ -1,4 +1,4 @@
-# test-padding-zero.ps1
+﻿# test-padding-zero.ps1
 # komorebi.json の padding（余白）が 0 に設定されているかチェックするテスト
 # padding が 0 だと、ウィンドウが画面の端ギリギリまで広がる
 

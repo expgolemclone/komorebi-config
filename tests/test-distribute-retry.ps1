@@ -1,4 +1,4 @@
-# test-distribute-retry.ps1
+﻿# test-distribute-retry.ps1
 # distribute-windows.ps1 にエクスポネンシャルバックオフと最大リトライ数が実装されているか検証する
 
 $scriptPath = "$PSScriptRoot\..\scripts\distribute-windows.ps1"

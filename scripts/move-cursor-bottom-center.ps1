@@ -1,4 +1,4 @@
-# move-cursor-bottom-center.ps1
+﻿# move-cursor-bottom-center.ps1
 # フォーカス先ウィンドウの下辺中央にマウスカーソルを移動する
 
 Add-Type @"

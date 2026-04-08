@@ -1,4 +1,4 @@
-# test-bar-widgets.ps1
+﻿# test-bar-widgets.ps1
 # komorebi.bar.json の全ウィジェットが enable: true であることを検証する
 # （無効なウィジェットは設定から削除する運用のため）
 

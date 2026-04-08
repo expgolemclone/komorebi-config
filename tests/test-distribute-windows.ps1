@@ -1,4 +1,4 @@
-# test-distribute-windows.ps1
+﻿# test-distribute-windows.ps1
 # distribute-windows.ps1 と restart.ps1 の検証テスト
 
 $ErrorCount = 0

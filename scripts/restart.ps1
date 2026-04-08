@@ -1,4 +1,4 @@
-# ユーザー環境変数として永続的に設定（Windowsの「システム環境変数」に書き込む）
+﻿# ユーザー環境変数として永続的に設定（Windowsの「システム環境変数」に書き込む）
 # こうすることで、このスクリプト以外から起動されたプロセス（whkd など）でも
 # 設定ファイルの場所を見つけられるようになる
 [System.Environment]::SetEnvironmentVariable("KOMOREBI_CONFIG_HOME", "$env:USERPROFILE\.config\komorebi", "User")

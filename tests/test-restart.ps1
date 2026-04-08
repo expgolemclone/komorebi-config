@@ -1,4 +1,4 @@
-# test-restart.ps1
+﻿# test-restart.ps1
 # restart.ps1 の変更が正しく動作するかテストするスクリプト
 # テスト項目:
 #   1. restart.ps1 が正常に実行できる

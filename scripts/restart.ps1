@@ -1,4 +1,10 @@
-﻿# ユーザー環境変数として永続的に設定（Windowsの「システム環境変数」に書き込む）
+﻿# 管理者権限がなければUACで再起動する
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    exit
+}
+
+# ユーザー環境変数として永続的に設定（Windowsの「システム環境変数」に書き込む）
 # こうすることで、このスクリプト以外から起動されたプロセス（whkd など）でも
 # 設定ファイルの場所を見つけられるようになる
 [System.Environment]::SetEnvironmentVariable("KOMOREBI_CONFIG_HOME", "$env:USERPROFILE\.config\komorebi", "User")

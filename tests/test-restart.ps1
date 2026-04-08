@@ -22,7 +22,7 @@ try {
     exit 1
 }
 
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 15
 
 # --- Test 2: 3つのプロセスが起動しているか ---
 Write-Host "`n[Test 2] komorebi, komorebi-bar, whkd が起動しているか確認..." -ForegroundColor Yellow

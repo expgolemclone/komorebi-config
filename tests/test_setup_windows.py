@@ -1,6 +1,7 @@
 """Tests for Windows VM setup script."""
 
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 
@@ -50,7 +51,7 @@ def test_setup_script_exists() -> None:
 
 def test_setup_script_generates_powershell() -> None:
     result: subprocess.CompletedProcess[str] = subprocess.run(
-        ["python3", str(SETUP_SCRIPT), "--dry-run"],
+        [sys.executable, str(SETUP_SCRIPT), "--dry-run"],
         capture_output=True,
         text=True,
         timeout=10,

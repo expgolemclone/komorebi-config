@@ -30,6 +30,7 @@ def _init_repo(tmp_path: Path) -> Path:
     _git(["init"], repo)
     _git(["config", "user.email", "test@test.com"], repo)
     _git(["config", "user.name", "test"], repo)
+    _git(["config", "core.autocrlf", "false"], repo)
     init_file = repo / "init.txt"
     init_file.write_text("init\n", encoding="utf-8")
     _git(["add", "init.txt"], repo)
@@ -48,7 +49,7 @@ def _run_script(cwd: Path) -> subprocess.CompletedProcess[str]:
 
 def test_utf8_lf_passes(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
-    (repo / "good.txt").write_text("hello\nworld\n", encoding="utf-8")
+    (repo / "good.txt").write_text("hello\nworld\n", encoding="utf-8", newline="\n")
     _git(["add", "good.txt"], repo)
 
     result = _run_script(repo)
@@ -76,7 +77,7 @@ def test_no_modified_files_passes(tmp_path: Path) -> None:
 
 def test_japanese_utf8_passes(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
-    (repo / "jp.txt").write_text("日本語テスト\n", encoding="utf-8")
+    (repo / "jp.txt").write_text("日本語テスト\n", encoding="utf-8", newline="\n")
     _git(["add", "jp.txt"], repo)
 
     result = _run_script(repo)
@@ -86,7 +87,7 @@ def test_japanese_utf8_passes(tmp_path: Path) -> None:
 
 def test_mixed_files_fail(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
-    (repo / "a.txt").write_text("good\n", encoding="utf-8")
+    (repo / "a.txt").write_text("good\n", encoding="utf-8", newline="\n")
     (repo / "b.txt").write_bytes(b"bad\r\n")
     _git(["add", "a.txt", "b.txt"], repo)
 

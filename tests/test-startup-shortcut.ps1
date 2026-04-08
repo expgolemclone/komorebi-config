@@ -1,8 +1,8 @@
-# test-startup-shortcut.ps1
+﻿# test-startup-shortcut.ps1
 # ショートカットが正しく作成されたか検証する
 
 $shortcutPath = "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\komorebi-restart.lnk"
-$scriptPath = "C:\Users\0000250059\.config\komorebi\scripts\restart.ps1"
+$scriptPath = "$Env:USERPROFILE\.config\komorebi\scripts\restart.ps1"
 
 # ショートカットが存在するか
 if (-not (Test-Path $shortcutPath)) {
@@ -14,9 +14,9 @@ if (-not (Test-Path $shortcutPath)) {
 $shell = New-Object -ComObject WScript.Shell
 $lnk = $shell.CreateShortcut($shortcutPath)
 
-# ターゲットが pwsh であること
-if ($lnk.TargetPath -notlike "*pwsh*") {
-    Write-Host "FAIL: TargetPath is not pwsh: $($lnk.TargetPath)" -ForegroundColor Red
+# ターゲットが pwsh または powershell であること
+if (($lnk.TargetPath -notlike "*pwsh*") -and ($lnk.TargetPath -notlike "*powershell*")) {
+    Write-Host "FAIL: TargetPath is not pwsh/powershell: $($lnk.TargetPath)" -ForegroundColor Red
     exit 1
 }
 

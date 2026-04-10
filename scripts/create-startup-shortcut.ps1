@@ -2,7 +2,7 @@
 # Create a startup shortcut for komorebi with RunAs (admin) flag
 
 $shortcutPath = "$Env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\komorebi-restart.lnk"
-$scriptPath = "$Env:USERPROFILE\.config\komorebi\scripts\restart.ps1"
+$scriptPath = "$Env:USERPROFILE\projects\komorebi-config\scripts\restart.ps1"
 $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
 if (-not $pwshPath) {
     $pwshPath = (Get-Command powershell -ErrorAction Stop).Source

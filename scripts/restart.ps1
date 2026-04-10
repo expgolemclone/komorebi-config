@@ -20,13 +20,6 @@ Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "LowLevelHooksTimeout
 $Env:KOMOREBI_CONFIG_HOME = "$env:USERPROFILE\projects\komorebi-config"
 $Env:WHKD_CONFIG_HOME = "$env:USERPROFILE\projects\komorebi-config"
 
-# プロジェクトの設定ファイルを旧デプロイ先にミラーし、古い設定の読み込みを防ぐ
-$mirrorDest = "$env:USERPROFILE\.config\komorebi"
-if (Test-Path $mirrorDest) {
-    robocopy $Env:KOMOREBI_CONFIG_HOME $mirrorDest komorebi.json komorebi.bar.json whkdrc /IS /IT /NJH /NJS /NDL /NP | Out-Null
-    robocopy "$Env:KOMOREBI_CONFIG_HOME\scripts" "$mirrorDest\scripts" /MIR /NJH /NJS /NDL /NP | Out-Null
-}
-
 # komorebi と whkd の実行ファイルがあるフォルダを PATH に追加して、コマンドとして使えるようにする
 $Env:Path = "C:\Program Files\komorebi\bin;C:\Program Files\whkd\bin;" + $Env:Path
 

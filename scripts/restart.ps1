@@ -28,12 +28,6 @@ komorebic stop 2>&1 | Out-Null
 Stop-Process -Name whkd -Force -ErrorAction SilentlyContinue
 Stop-Process -Name komorebi-bar -Force -ErrorAction SilentlyContinue
 Stop-Process -Name komorebi -Force -ErrorAction SilentlyContinue
-# distribute-windows.ps1 が動いている pwsh プロセスを探して停止する
-# （再起動時に旧プロセスが残らないようにするため）
-# pwsh.exe = PowerShell 7 のプロセス名
-Get-CimInstance Win32_Process -Filter "Name='pwsh.exe'" |
-    Where-Object { $_.CommandLine -like "*distribute-windows*" } |
-    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 3
 
 # 残っていないか確認
@@ -53,11 +47,6 @@ Start-Sleep -Seconds 1
 # komorebic --whkd 経由だとコンソール窓が出てしまうので、
 # Start-Process -WindowStyle Hidden を使って窓を出さずに起動する
 Start-Process whkd -WindowStyle Hidden
-# distribute-windows.ps1 をバックグラウンドで起動する
-# 新しいウィンドウを空いているワークスペースへ自動振り分けするスクリプト
-# pwsh (PowerShell 7) を使う理由: PS 5.1 では大きな JSON のパースに失敗するため
-# -WindowStyle Hidden で窓を出さずに裏で動かす
-Start-Process pwsh -ArgumentList "-ExecutionPolicy Bypass -File `"$PSScriptRoot\distribute-windows.ps1`"" -WindowStyle Hidden
 Start-Sleep -Seconds 3
 
 # 起動直後のデフォルト WS 0 は config のレイアウトが適用されないため強制設定

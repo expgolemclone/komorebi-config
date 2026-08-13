@@ -6,6 +6,9 @@ import re
 from pathlib import Path
 
 RESTART_SCRIPT: Path = Path(__file__).resolve().parent.parent / "scripts" / "restart.ps1"
+DISTRIBUTE_SCRIPT: Path = (
+    Path(__file__).resolve().parent.parent / "scripts" / "distribute-windows.ps1"
+)
 
 
 def _read_script() -> str:
@@ -45,3 +48,17 @@ def test_contains_required_process_names() -> None:
     # Act & Assert
     for process in required_processes:
         assert process in content, f"必要なプロセス名 '{process}' が見つからない"
+
+
+def test_auto_distribution_script_is_removed() -> None:
+    assert not DISTRIBUTE_SCRIPT.exists(), (
+        "意図しないフォーカス中ウィンドウの移動を防ぐため、"
+        "distribute-windows.ps1 は削除されている必要がある"
+    )
+
+
+def test_restart_does_not_reference_auto_distribution() -> None:
+    content: str = _read_script()
+
+    assert "distribute-windows" not in content
+    assert "subscribe-pipe" not in content

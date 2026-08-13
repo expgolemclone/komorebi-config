@@ -71,11 +71,5 @@ pwsh -NoProfile -File .\tests\integration\windows\test-restart.ps1
 pwsh -NoProfile -File .\tests\integration\windows\test-border-color.ps1
 ```
 
-Docker上のWindows VMを検証する場合は, VMを起動してから次を実行します.
-
-```powershell
-uv run pytest -q tests\integration\test_docker_vm.py
-```
-
 [komorebi]: https://github.com/LGUG2Z/komorebi
 [whkd]: https://github.com/LGUG2Z/whkd

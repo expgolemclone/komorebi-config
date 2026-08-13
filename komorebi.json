@@ -1,5 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/LGUG2Z/komorebi/v0.1.41/schema.json",
+  "manage_rules": [
+    {
+      "kind": "Class",
+      "id": "ConsoleWindowClass",
+      "matching_strategy": "Equals"
+    }
+  ],
   "ignore_rules": [
     {
       "kind": "Title",

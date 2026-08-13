@@ -47,6 +47,18 @@ def test_mouse_follows_focus_is_disabled() -> None:
     assert _load_json("komorebi.json")["mouse_follows_focus"] is False
 
 
+def test_windows_console_is_forcibly_managed() -> None:
+    config = _load_json("komorebi.json")
+
+    assert config["manage_rules"] == [
+        {
+            "kind": "Class",
+            "id": "ConsoleWindowClass",
+            "matching_strategy": "Equals",
+        }
+    ]
+
+
 def test_all_configured_bar_widgets_are_enabled() -> None:
     config = _load_json("komorebi.bar.json")
 

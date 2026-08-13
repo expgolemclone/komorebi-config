@@ -1,11 +1,34 @@
 #requires -Version 7.0
 
 $ErrorActionPreference = "Stop"
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class DpiAwareness
+{
+    [DllImport("user32.dll")]
+    public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
+}
+'@
+
+$previousDpiContext = [DpiAwareness]::SetThreadDpiAwarenessContext([IntPtr](-4))
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
 
 $expected = [System.Drawing.Color]::FromArgb(0, 255, 255)
-$screen = [System.Windows.Forms.Screen]::PrimaryScreen
+$state = komorebic state | ConvertFrom-Json
+$monitor = $state.monitors.elements[$state.monitors.focused]
+$workspace = $monitor.workspaces.elements[$monitor.workspaces.focused]
+$container = $workspace.containers.elements[$workspace.containers.focused]
+$window = $container.windows.elements[$container.windows.focused]
+
+if (-not $window) {
+    Write-Host "FAIL: komorebi has no focused tiled window" -ForegroundColor Red
+    exit 1
+}
+
+$screen = [System.Windows.Forms.Screen]::FromHandle([IntPtr]$window.hwnd)
 $bitmap = [System.Drawing.Bitmap]::new($screen.Bounds.Width, $screen.Bounds.Height)
 $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
 
@@ -47,6 +70,9 @@ try {
 } finally {
     $graphics.Dispose()
     $bitmap.Dispose()
+    if ($previousDpiContext -ne [IntPtr]::Zero) {
+        [void][DpiAwareness]::SetThreadDpiAwarenessContext($previousDpiContext)
+    }
 }
 
 if ($matches -lt 2) {

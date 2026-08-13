@@ -9,14 +9,8 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-from pathlib import Path
 
-REPO_ROOT: Path = Path(__file__).resolve().parent.parent
-
-SHARED_FOLDER_CANDIDATES: list[str] = [
-    r"\\host.lan\Data",
-    r"C:\shared",
-]
+SHARED_FOLDER: str = r"\\host.lan\Data"
 
 CONFIG_FILES: list[str] = [
     "komorebi.json",
@@ -33,29 +27,26 @@ CONFIG_DIRS: list[str] = [
 def _build_setup_commands() -> str:
     file_list: str = ", ".join(f'"{f}"' for f in CONFIG_FILES)
     dir_list: str = ", ".join(f'"{d}"' for d in CONFIG_DIRS)
-    shared_paths: str = ", ".join(f'"{p}"' for p in SHARED_FOLDER_CANDIDATES)
-
     return rf"""$ErrorActionPreference = "Stop"
 $configDir = Join-Path $env:USERPROFILE ".config\komorebi"
+$sharedPath = "{SHARED_FOLDER}"
 
 Write-Host "=== komorebi test environment setup ===" -ForegroundColor Cyan
 
-# Install komorebi and whkd
-Write-Host "[1/3] Installing komorebi and whkd..." -ForegroundColor Yellow
-winget install LGUG2Z.komorebi --accept-package-agreements --accept-source-agreements
-winget install LGUG2Z.whkd     --accept-package-agreements --accept-source-agreements
+# Install PowerShell, komorebi, and whkd
+Write-Host "[1/3] Installing PowerShell, komorebi, and whkd..." -ForegroundColor Yellow
+winget install --id Microsoft.PowerShell --exact --accept-package-agreements --accept-source-agreements
+winget install --id LGUG2Z.komorebi --exact --accept-package-agreements --accept-source-agreements
+winget install --id LGUG2Z.whkd --exact --accept-package-agreements --accept-source-agreements
+$env:Path = @(
+    [Environment]::GetEnvironmentVariable("Path", "Machine"),
+    [Environment]::GetEnvironmentVariable("Path", "User")
+) -join ";"
 
-# Locate shared folder
+# Verify the shared folder
 Write-Host "[2/3] Copying config files..." -ForegroundColor Yellow
-$sharedPath = $null
-foreach ($candidate in @({shared_paths})) {{
-    if (Test-Path $candidate) {{
-        $sharedPath = $candidate
-        break
-    }}
-}}
-if (-not $sharedPath) {{
-    Write-Host "FAIL: shared folder not found" -ForegroundColor Red
+if (-not (Test-Path -LiteralPath $sharedPath -PathType Container)) {{
+    Write-Host "FAIL: shared folder not found: $sharedPath" -ForegroundColor Red
     exit 1
 }}
 
@@ -72,10 +63,10 @@ foreach ($dir in @({dir_list})) {{
 
 # Start komorebi
 Write-Host "[3/3] Starting komorebi..." -ForegroundColor Yellow
-powershell -ExecutionPolicy Bypass -File (Join-Path $configDir "scripts\restart.ps1")
+pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $configDir "scripts\restart.ps1")
 
 Write-Host "=== Setup complete ===" -ForegroundColor Cyan
-Write-Host "Run: cd $configDir && powershell -EP Bypass -File tests\test-restart.ps1"
+Write-Host "Run: cd $configDir && pwsh -NoProfile -File tests\integration\windows\test-restart.ps1"
 """
 
 

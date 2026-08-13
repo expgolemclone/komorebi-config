@@ -1,16 +1,45 @@
+#requires -Version 7.0
+
+$ErrorActionPreference = "Stop"
+
+function Test-IsAdministrator {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+if (-not (Test-IsAdministrator)) {
+    $pwshPath = (Get-Command pwsh -ErrorAction Stop).Source
+    $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    $elevatedProcess = Start-Process `
+        -FilePath $pwshPath `
+        -ArgumentList $arguments `
+        -Verb RunAs `
+        -Wait `
+        -PassThru
+    exit $elevatedProcess.ExitCode
+}
+
+$pwshPath = (Get-Command pwsh -ErrorAction Stop).Source
+$restartPath = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "restart.ps1")).Path
+$userId = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+
 $action = New-ScheduledTaskAction `
-    -Execute "C:\Program Files\PowerShell\7\pwsh.exe" `
-    -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File ""C:\Users\0000250059\.config\komorebi\scripts\restart.ps1"""
+    -Execute $pwshPath `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$restartPath`""
 
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$trigger.Delay = "PT30S"  # Wait 30s after logon for profile/filesystem to be ready
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
+$trigger.Delay = "PT30S"
 
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Highest -LogonType Interactive
+$principal = New-ScheduledTaskPrincipal `
+    -UserId $userId `
+    -RunLevel Highest `
+    -LogonType Interactive
 
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
-    -ExecutionTimeLimit (New-TimeSpan -Seconds 0)
+    -ExecutionTimeLimit ([TimeSpan]::Zero)
 
 Register-ScheduledTask `
     -TaskName "komorebi" `
@@ -18,7 +47,15 @@ Register-ScheduledTask `
     -Trigger $trigger `
     -Principal $principal `
     -Settings $settings `
-    -Description "Start komorebi with admin privileges" `
+    -Description "Start komorebi from the registered configuration repository" `
     -Force
 
-Write-Host "Task registered successfully"
+$legacyShortcutPath = Join-Path `
+    $Env:APPDATA `
+    "Microsoft\Windows\Start Menu\Programs\Startup\komorebi-restart.lnk"
+if (Test-Path -LiteralPath $legacyShortcutPath -PathType Leaf) {
+    Remove-Item -LiteralPath $legacyShortcutPath -Force
+    Write-Host "Removed obsolete startup shortcut: $legacyShortcutPath"
+}
+
+Write-Host "Registered scheduled task 'komorebi' for: $restartPath"

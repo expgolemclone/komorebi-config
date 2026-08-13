@@ -14,12 +14,6 @@
   ],
   "window_hiding_behaviour": "Cloak",
   "cross_monitor_move_behaviour": "Insert",
-  "display_index_preferences": {
-    "0": "UHB2501018161",
-    "1": "UHB2501018393",
-    "2": "12376JQA01068",
-    "3": "12376JQA00907"
-  },
   "default_workspace_padding": 0,
   "default_container_padding": 0,
   "mouse_follows_focus": false,
@@ -33,51 +27,5 @@
     "monocle": "#00FFFF",
     "floating": "#00FFFF",
     "unfocused": "#565E65"
-  },
-  "monitors": [
-    {
-      "workspaces": [
-        { "name": "I", "layout": "Rows" },
-        { "name": "II", "layout": "Rows" },
-        { "name": "III", "layout": "Rows" },
-        { "name": "IV", "layout": "Rows" },
-        { "name": "V", "layout": "Rows" },
-        { "name": "VI", "layout": "Rows" },
-        { "name": "VII", "layout": "Rows" }
-      ]
-    },
-    {
-      "workspaces": [
-        { "name": "I", "layout": "Rows" },
-        { "name": "II", "layout": "Rows" },
-        { "name": "III", "layout": "Rows" },
-        { "name": "IV", "layout": "Rows" },
-        { "name": "V", "layout": "Rows" },
-        { "name": "VI", "layout": "Rows" },
-        { "name": "VII", "layout": "Rows" }
-      ]
-    },
-    {
-      "workspaces": [
-        { "name": "I", "layout": "Rows" },
-        { "name": "II", "layout": "Rows" },
-        { "name": "III", "layout": "Rows" },
-        { "name": "IV", "layout": "Rows" },
-        { "name": "V", "layout": "Rows" },
-        { "name": "VI", "layout": "Rows" },
-        { "name": "VII", "layout": "Rows" }
-      ]
-    },
-    {
-      "workspaces": [
-        { "name": "I", "layout": "Rows" },
-        { "name": "II", "layout": "Rows" },
-        { "name": "III", "layout": "Rows" },
-        { "name": "IV", "layout": "Rows" },
-        { "name": "V", "layout": "Rows" },
-        { "name": "VI", "layout": "Rows" },
-        { "name": "VII", "layout": "Rows" }
-      ]
-    }
-  ]
+  }
 }

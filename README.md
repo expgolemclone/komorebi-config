@@ -1,123 +1,81 @@
 # komorebi-config
 
-Windows タイル型ウィンドウマネージャー [komorebi][komorebi] の設定ファイル一式。
+Windows tiling window manager [komorebi][komorebi]の個人用設定です.
 
-## ファイル構成
+komorebiにmonitorを自動検出させ, 各monitorでworkspace 0を1つだけ使用します. 起動時に全workspaceへ`Rows` layoutを適用します.
 
-| ファイル             | 説明                                                         |
-| -------------------- | ------------------------------------------------------------ |
-| `komorebi.json`      | komorebi 本体の設定（レイアウト、ボーダー、テーマ、ワークスペース） |
-| `komorebi.bar.json`  | ステータスバー (komorebi-bar) の設定（ウィジェット、フォント、テーマ） |
-| `whkdrc`             | キーボードショートカットの定義 ([whkd][whkd])                |
-| `applications.json`  | アプリごとのウィンドウ管理ルール（.gitignore 対象）          |
-| `restart.ps1`        | komorebi / komorebi-bar / whkd を停止・再起動する PowerShell スクリプト |
+## Requirements
 
-## セットアップ
+- PowerShell 7
+- [komorebi][komorebi]
+- [whkd][whkd]
+- JetBrains Mono
+- jjとuv, unit testを実行する場合のみ
 
-### 前提
+## Setup
 
-- [komorebi][komorebi] と [whkd][whkd] がインストール済み
-- フォント: JetBrains Mono（komorebi-bar で使用）
-
-### 初回セットアップ
-
-PowerShell で `restart.ps1` を実行する。
+管理者PowerShell 7でrepository rootへ移動し, Scheduled Taskを登録します.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.config\komorebi\restart.ps1"
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\register-task.ps1
 ```
 
-このスクリプトは以下を行う:
+Taskは現在のcheckoutにある`restart.ps1`の絶対pathを保存し, loginの30秒後に最高権限で実行します. Repositoryを移動した場合は, 同じcommandでTaskを再登録します.
 
-1. `KOMOREBI_CONFIG_HOME` / `WHKD_CONFIG_HOME` をユーザーレベル環境変数に永続設定
-2. `LowLevelHooksTimeout` レジストリ値を延長（whkd のキーボードフック保護）
-3. komorebi, komorebi-bar, whkd を一括起動
-
-### 設定変更後の再起動
+手動で起動または再起動する場合は, 次のcommandを実行します.
 
 ```powershell
-# PowerShell から直接実行
-powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.config\komorebi\restart.ps1"
-
-# または whkd ショートカットで個別リロード
-# Alt + O         → whkd 再起動（whkdrc の変更を反映）
-# Alt + Shift + O → komorebi 設定リロード（komorebi.json の変更を反映）
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 ```
 
-## キーバインド一覧
+`restart.ps1`はrepository rootをconfig rootとして解決し, 次の処理を行います.
 
-### 一般
+1. `KOMOREBI_CONFIG_HOME`と`WHKD_CONFIG_HOME`を設定します.
+2. `LowLevelHooksTimeout`を5000 msへ設定します.
+3. komorebi, komorebi-bar, whkdを正式なCLIで停止します.
+4. 孤立したbar socket fileを削除します.
+5. Static configを指定して3 processを起動します.
+6. 自動検出した各monitorのworkspace 0へ`Rows`を適用します.
 
-| キー              | 動作                   |
-| ----------------- | ---------------------- |
-| `Alt + Q`         | ウィンドウを閉じる     |
-| `Alt + M`         | ウィンドウを最小化     |
-| `Alt + T`         | フロート切替           |
-| `Alt + Shift + F` | モノクル切替           |
-| `Alt + P`         | komorebi 一時停止切替  |
-| `Alt + I`         | ショートカット切替     |
+## Key bindings
 
-### フォーカス移動
+| Key | Action |
+| --- | --- |
+| `Alt + Q` | Windowを閉じる |
+| `Alt + M` | Windowを最小化する |
+| `Alt + T` | Floatingを切り替える |
+| `Alt + Shift + F` | Monocleを切り替える |
+| `Alt + H/J/K/L` | Focusを左, 下, 上, 右へ移動する |
+| `Alt + Shift + H/J/K/L` | Windowを左, 下, 上, 右へ移動する |
+| `Alt + 1` | Workspace 0へfocusする |
+| `Alt + Shift + 1` | Windowをworkspace 0へ移動する |
+| `Alt + O` | whkdを再起動する |
+| `Alt + Shift + O` | `komorebi.json`をrunning instanceへ反映する |
 
-| キー                | 動作                         |
-| ------------------- | ---------------------------- |
-| `Alt + H / J / K / L` | 左 / 下 / 上 / 右        |
-| `Alt + Shift + [ / ]`  | 前 / 次のウィンドウへ循環 |
+その他のbindingは[whkdrc](whkdrc)を参照してください.
 
-### ウィンドウ移動
+## Tests
 
-| キー                        | 動作             |
-| --------------------------- | ---------------- |
-| `Alt + Shift + H / J / K / L` | 左 / 下 / 上 / 右 |
-| `Alt + Shift + Enter`       | メインに昇格     |
+通常のtestはhardwareやrunning processに依存しません.
 
-### スタック
+```powershell
+uv run pytest -q
+uv run python .\scripts\validate_encoding.py
+```
 
-| キー              | 動作                           |
-| ----------------- | ------------------------------ |
-| `Alt + Arrow Keys` | 方向キーの方向にスタック      |
-| `Alt + ;`         | スタック解除                   |
-| `Alt + [ / ]`     | スタック内で前 / 次へ          |
+実機のkomorebi状態を検証する場合は, restart後にintegration testを明示実行します.
 
-### リサイズ
+```powershell
+uv run pytest -q tests\integration\test_komorebi_runtime.py
+pwsh -NoProfile -File .\tests\integration\windows\test-restart.ps1
+pwsh -NoProfile -File .\tests\integration\windows\test-border-color.ps1
+```
 
-| キー                  | 動作           |
-| --------------------- | -------------- |
-| `Alt + = / -`         | 横幅 拡大 / 縮小 |
-| `Alt + Shift + = / -` | 縦幅 拡大 / 縮小 |
+Docker上のWindows VMを検証する場合は, VMを起動してから次を実行します.
 
-### レイアウト
-
-| キー              | 動作       |
-| ----------------- | ---------- |
-| `Alt + X`         | 水平反転   |
-| `Alt + Y`         | 垂直反転   |
-| `Alt + Shift + R` | リタイル   |
-
-### ワークスペース
-
-| キー                | 動作                               |
-| ------------------- | ---------------------------------- |
-| `Alt + 1-8`         | ワークスペース 1-8 にフォーカス    |
-| `Alt + Shift + 1-8` | ウィンドウをワークスペース 1-8 に移動 |
-
-### リロード
-
-| キー              | 動作                   |
-| ----------------- | ---------------------- |
-| `Alt + O`         | whkd 再起動            |
-| `Alt + Shift + O` | komorebi 設定リロード  |
-
-## トラブルシューティング
-
-### whkd がテキストボックスにフォーカスした後に動かなくなる
-
-Windows の低レベルキーボードフック (`WH_KEYBOARD_LL`) がタイムアウトで無効化される問題。`restart.ps1` で以下の対策を適用済み:
-
-- `LowLevelHooksTimeout` レジストリ値を 5000ms に延長
-- whkdrc のシェルを `cmd` に変更（PowerShell より起動が高速）
-
-レジストリ変更の反映にはログオフ/再起動が必要な場合がある。
+```powershell
+uv run pytest -q tests\integration\test_docker_vm.py
+```
 
 [komorebi]: https://github.com/LGUG2Z/komorebi
 [whkd]: https://github.com/LGUG2Z/whkd

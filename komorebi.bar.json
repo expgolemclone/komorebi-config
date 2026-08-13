@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/LGUG2Z/komorebi/v0.1.40/schema.bar.json",
-  "font_family": "JetBrains Mono",
+  "$schema": "https://raw.githubusercontent.com/LGUG2Z/komorebi/v0.1.41/schema.bar.json",
+  "font_family": "JetBrainsMono NF Regular",
   "theme": {
     "palette": "Base16",
     "name": "Ashes",

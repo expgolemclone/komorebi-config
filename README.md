@@ -7,9 +7,10 @@ komorebiにmonitorを自動検出させ, 各monitorでworkspace 0を1つだけ�
 ## Requirements
 
 - PowerShell 7
-- [komorebi][komorebi]
+- [komorebi][komorebi] v0.1.41
 - [whkd][whkd]
-- JetBrains Mono
+- AutoHotkey v2.0.26
+- JetBrainsMono Nerd Font 3.3.0
 - jjとuv, unit testを実行する場合のみ
 
 ## Setup
@@ -20,7 +21,7 @@ komorebiにmonitorを自動検出させ, 各monitorでworkspace 0を1つだけ�
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\register-task.ps1
 ```
 
-Taskは現在のcheckoutにある`restart.ps1`の絶対pathを保存し, loginの30秒後に最高権限で実行します. Repositoryを移動した場合は, 同じcommandでTaskを再登録します.
+Taskは現在のcheckoutにある`restart.ps1`, installed command directory, AutoHotkeyの絶対pathを保存し, loginの30秒後に最高権限で実行します. Repositoryまたはcommandのinstall先を移動した場合は, 同じcommandでTaskを再登録します.
 
 手動で起動または再起動する場合は, 次のcommandを実行します.
 
@@ -31,7 +32,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 `restart.ps1`はrepository rootをconfig rootとして解決し, 次の処理を行います.
 
 1. `KOMOREBI_CONFIG_HOME`と`WHKD_CONFIG_HOME`を設定します.
-2. `LowLevelHooksTimeout`を5000 msへ設定します.
+2. `LowLevelHooksTimeout`をWindowsの上限である1000 msへ設定します.
 3. komorebi, komorebi-bar, whkdを正式なCLIで停止します.
 4. 孤立したbar socket fileを削除します.
 5. Static configを指定して3 processを起動します.
@@ -59,15 +60,17 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 通常のtestはhardwareやrunning processに依存しません.
 
 ```powershell
-uv run pytest -q
+uv run --extra test pytest -q
 uv run python .\scripts\validate_encoding.py
 ```
 
 実機のkomorebi状態を検証する場合は, restart後にintegration testを明示実行します.
 
 ```powershell
-uv run pytest -q tests\integration\test_komorebi_runtime.py
 pwsh -NoProfile -File .\tests\integration\windows\test-restart.ps1
+uv run --extra test pytest -q tests\integration\test_komorebi_runtime.py
+pwsh -NoProfile -File .\tests\integration\windows\test-config-schema.ps1
+pwsh -NoProfile -File .\tests\integration\windows\test-cursor-helper.ps1
 pwsh -NoProfile -File .\tests\integration\windows\test-border-color.ps1
 ```
 

@@ -13,10 +13,10 @@ alt + q                 : komorebic close
 alt + m                 : komorebic minimize
 
 # Focus windows
-alt + h                 : komorebic focus left && start /b powershell -NoProfile -EP Bypass -File "%KOMOREBI_CONFIG_HOME%\scripts\move-cursor-bottom-center.ps1"
-alt + j                 : komorebic focus down && start /b powershell -NoProfile -EP Bypass -File "%KOMOREBI_CONFIG_HOME%\scripts\move-cursor-bottom-center.ps1"
-alt + k                 : komorebic focus up && start /b powershell -NoProfile -EP Bypass -File "%KOMOREBI_CONFIG_HOME%\scripts\move-cursor-bottom-center.ps1"
-alt + l                 : komorebic focus right && start /b powershell -NoProfile -EP Bypass -File "%KOMOREBI_CONFIG_HOME%\scripts\move-cursor-bottom-center.ps1"
+alt + h                 : komorebic focus left && start "" /b "%KOMOREBI_AUTOHOTKEY%" "%KOMOREBI_CONFIG_HOME%\scripts\move-cursor-bottom-center.ahk"
+alt + j                 : komorebic focus down && start "" /b "%KOMOREBI_AUTOHOTKEY%" "%KOMOREBI_CONFIG_HOME%\scripts\move-cursor-bottom-center.ahk"
+alt + k                 : komorebic focus up && start "" /b "%KOMOREBI_AUTOHOTKEY%" "%KOMOREBI_CONFIG_HOME%\scripts\move-cursor-bottom-center.ahk"
+alt + l                 : komorebic focus right && start "" /b "%KOMOREBI_AUTOHOTKEY%" "%KOMOREBI_CONFIG_HOME%\scripts\move-cursor-bottom-center.ahk"
 alt + shift + oem_4     : komorebic cycle-focus previous # oem_4 is [
 alt + shift + oem_6     : komorebic cycle-focus next # oem_6 is ]
 

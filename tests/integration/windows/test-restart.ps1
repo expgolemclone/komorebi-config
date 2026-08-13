@@ -5,8 +5,32 @@ $PSNativeCommandUseErrorActionPreference = $true
 $allPassed = $true
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..\..")).Path
 $restartPath = Join-Path $repoRoot "scripts\restart.ps1"
+$whkdConfigPath = Join-Path $repoRoot "whkdrc"
+$komorebicPath = (Get-Command komorebic -ErrorAction Stop).Source
+$whkdPath = (Get-Command whkd -ErrorAction Stop).Source
 
 Write-Host "=== restart.ps1 integration test ===" -ForegroundColor Cyan
+
+if (Get-Process -Name komorebi -ErrorAction SilentlyContinue) {
+    & $komorebicPath stop --whkd --bar
+}
+$leftoverHelpers = Get-Process -Name @("komorebi-bar", "whkd") -ErrorAction SilentlyContinue
+if ($leftoverHelpers) {
+    Stop-Process -Id $leftoverHelpers.Id -Force
+}
+
+$whkdArguments = "-c `"$whkdConfigPath`""
+$orphanedWhkd = Start-Process `
+    -FilePath $whkdPath `
+    -ArgumentList $whkdArguments `
+    -WindowStyle Hidden `
+    -PassThru
+Start-Sleep -Milliseconds 500
+if ($orphanedWhkd.HasExited) {
+    Write-Host "FAIL: failed to prepare an orphaned whkd process" -ForegroundColor Red
+    exit 1
+}
+Write-Host "Prepared orphaned whkd process: $($orphanedWhkd.Id)" -ForegroundColor Cyan
 
 try {
     & $restartPath
@@ -17,11 +41,11 @@ try {
 
 $expectedProcesses = @("komorebi", "komorebi-bar", "whkd")
 foreach ($name in $expectedProcesses) {
-    $process = Get-Process -Name $name -ErrorAction SilentlyContinue
-    if ($process) {
-        Write-Host "PASS: $name is running" -ForegroundColor Green
+    $processes = @(Get-Process -Name $name -ErrorAction SilentlyContinue)
+    if ($processes.Count -eq 1) {
+        Write-Host "PASS: exactly one $name process is running" -ForegroundColor Green
     } else {
-        Write-Host "FAIL: $name is not running" -ForegroundColor Red
+        Write-Host "FAIL: expected one $name process, found $($processes.Count)" -ForegroundColor Red
         $allPassed = $false
     }
 }
@@ -34,7 +58,6 @@ if (-not $whkdProcess -or $whkdProcess.MainWindowHandle -ne 0) {
     Write-Host "PASS: whkd has no visible window" -ForegroundColor Green
 }
 
-$komorebicPath = (Get-Command komorebic -ErrorAction Stop).Source
 $state = & $komorebicPath state | ConvertFrom-Json
 foreach ($monitor in $state.monitors.elements) {
     $workspaces = @($monitor.workspaces.elements)

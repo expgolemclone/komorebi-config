@@ -1,7 +1,29 @@
 #requires -Version 7.0
 
+param(
+    [string]$KomorebiBin,
+    [string]$WhkdBin,
+    [string]$AutoHotkeyPath
+)
+
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
+
+$hasKomorebiBin = -not [string]::IsNullOrWhiteSpace($KomorebiBin)
+$hasWhkdBin = -not [string]::IsNullOrWhiteSpace($WhkdBin)
+$hasAutoHotkeyPath = -not [string]::IsNullOrWhiteSpace($AutoHotkeyPath)
+$explicitCommandPaths = @($hasKomorebiBin, $hasWhkdBin, $hasAutoHotkeyPath)
+if ($explicitCommandPaths -contains $true -and $explicitCommandPaths -contains $false) {
+    throw "KomorebiBin, WhkdBin, and AutoHotkeyPath must be provided together"
+}
+if ($hasKomorebiBin) {
+    foreach ($commandDirectory in @($KomorebiBin, $WhkdBin)) {
+        if (-not (Test-Path -LiteralPath $commandDirectory -PathType Container)) {
+            throw "command directory was not found: $commandDirectory"
+        }
+    }
+    $Env:PATH = "$KomorebiBin;$WhkdBin;$Env:PATH"
+}
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -26,26 +48,56 @@ $configPath = Join-Path $configRoot "komorebi.json"
 if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
     throw "komorebi.json was not found: $configPath"
 }
+if (-not $hasAutoHotkeyPath) {
+    $autoHotkeyInstallLocation = Get-ItemPropertyValue `
+        -LiteralPath "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AutoHotkey" `
+        -Name "InstallLocation" `
+        -ErrorAction Stop
+    $AutoHotkeyPath = Join-Path $autoHotkeyInstallLocation "v2\AutoHotkey64.exe"
+}
+if (-not (Test-Path -LiteralPath $AutoHotkeyPath -PathType Leaf)) {
+    throw "AutoHotkey v2 executable was not found: $AutoHotkeyPath"
+}
 
 $komorebicPath = (Get-Command komorebic -ErrorAction Stop).Source
+(Get-Command komorebi-bar -ErrorAction Stop) | Out-Null
+(Get-Command whkd -ErrorAction Stop) | Out-Null
 
 [System.Environment]::SetEnvironmentVariable("KOMOREBI_CONFIG_HOME", $configRoot, "User")
 [System.Environment]::SetEnvironmentVariable("WHKD_CONFIG_HOME", $configRoot, "User")
+[System.Environment]::SetEnvironmentVariable("KOMOREBI_AUTOHOTKEY", $AutoHotkeyPath, "User")
 $Env:KOMOREBI_CONFIG_HOME = $configRoot
 $Env:WHKD_CONFIG_HOME = $configRoot
+$Env:KOMOREBI_AUTOHOTKEY = $AutoHotkeyPath
 
 Set-ItemProperty `
     -Path "HKCU:\Control Panel\Desktop" `
     -Name "LowLevelHooksTimeout" `
-    -Value 5000 `
+    -Value 1000 `
     -Type DWord `
     -Force
 
 $managedProcessNames = @("komorebi", "komorebi-bar", "whkd")
 $runningProcesses = Get-Process -Name $managedProcessNames -ErrorAction SilentlyContinue
-if ($runningProcesses) {
-    & $komorebicPath stop --whkd --bar
+$komorebiProcesses = @($runningProcesses | Where-Object Name -eq "komorebi")
+if ($komorebiProcesses.Count -gt 1) {
+    throw "multiple komorebi processes are running"
+}
 
+if ($komorebiProcesses.Count -eq 1) {
+    & $komorebicPath stop --whkd --bar
+} else {
+    $orphanedHelpers = @(
+        $runningProcesses | Where-Object Name -in @("komorebi-bar", "whkd")
+    )
+    if ($orphanedHelpers.Count -ne 0) {
+        $orphanedNames = ($orphanedHelpers.Name | Sort-Object -Unique) -join ", "
+        Write-Host "Stopping orphaned helper processes: $orphanedNames"
+        Stop-Process -Id $orphanedHelpers.Id -Force
+    }
+}
+
+if ($runningProcesses) {
     $stopDeadline = [DateTime]::UtcNow.AddSeconds(10)
     do {
         $runningProcesses = Get-Process -Name $managedProcessNames -ErrorAction SilentlyContinue

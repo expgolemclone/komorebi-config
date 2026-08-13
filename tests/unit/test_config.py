@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+KOMOREBI_VERSION = "0.1.41"
 
 
 def _load_json(name: str) -> dict:
@@ -19,6 +20,15 @@ def test_komorebi_uses_automatic_monitor_detection() -> None:
 
     assert "monitors" not in config
     assert "display_index_preferences" not in config
+
+
+def test_config_schemas_match_the_supported_komorebi_version() -> None:
+    komorebi = _load_json("komorebi.json")
+    bar = _load_json("komorebi.bar.json")
+
+    assert f"/v{KOMOREBI_VERSION}/schema.json" in komorebi["$schema"]
+    assert f"/v{KOMOREBI_VERSION}/schema.bar.json" in bar["$schema"]
+    assert bar["font_family"] == "JetBrainsMono NF Regular"
 
 
 def test_padding_and_border_configuration() -> None:

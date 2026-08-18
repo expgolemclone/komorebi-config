@@ -74,24 +74,64 @@ def test_restart_accepts_explicit_command_directories() -> None:
     assert 'SetEnvironmentVariable("KOMOREBI_AUTOHOTKEY"' in content
 
 
+def test_restart_requires_explicit_elevation() -> None:
+    content = _content("restart.ps1")
+
+    assert 'throw "restart.ps1 must be run from an elevated PowerShell 7 session"' in content
+    assert "-Verb RunAs" not in content
+    assert "-Wait `" not in content
+
+
 def test_restart_uses_official_process_lifecycle() -> None:
     content = _content("restart.ps1")
 
     assert 'ArgumentList @("stop", "--whkd", "--bar")' in content
     assert 'Where-Object Name -eq "komorebi"' in content
     assert "Stopping orphaned helper processes" in content
-    assert "start --config $configPath --whkd --bar --clean-state" in content
-    assert "monitor-information" in content
-    assert "workspace-layout $monitorIndex 0 rows" in content
+    assert (
+        'ArgumentList @("start", "--config", $configPath, "--whkd", "--bar", "--clean-state")'
+        in content
+    )
+    assert 'ArgumentList @("monitor-information")' in content
+    assert (
+        'ArgumentList @("workspace-layout", [string]$monitorIndex, "0", "rows")'
+        in content
+    )
 
 
-def test_restart_bounds_graceful_stop() -> None:
+def test_restart_bounds_every_komorebic_call() -> None:
     content = _content("restart.ps1")
 
-    assert "$stopProcess.WaitForExit(10000)" in content
-    assert "$stopProcess.Kill($true)" in content
-    assert 'throw "komorebic stop timed out after 10 seconds"' in content
-    assert 'throw "komorebic stop failed with exit code $($stopProcess.ExitCode)"' in content
+    assert "function Invoke-Komorebic" in content
+    assert "[System.Diagnostics.ProcessStartInfo]::new()" in content
+    assert "$process.WaitForExit($TimeoutMilliseconds)" in content
+    assert "$process.Kill($true)" in content
+    assert "timed out after $seconds seconds" in content
+    assert "failed with exit code $($process.ExitCode)" in content
+    assert "& $komorebicPath" not in content
+
+    for operation in (
+        '"stop"',
+        '"data-directory"',
+        '"start"',
+        '"monitor-information"',
+        '"workspace-layout monitor $monitorIndex workspace 0"',
+    ):
+        assert f"-Operation {operation}" in content
+
+
+def test_restart_reports_progress_before_runtime_operations() -> None:
+    content = _content("restart.ps1")
+
+    for stage in (
+        "=== Stopping komorebi ===",
+        "=== Cleaning runtime files ===",
+        "=== Starting komorebi ===",
+        "=== Waiting for managed processes ===",
+        "=== Applying workspace layouts ===",
+        "=== Running processes ===",
+    ):
+        assert stage in content
 
 
 def test_restart_uses_supported_hook_timeout() -> None:

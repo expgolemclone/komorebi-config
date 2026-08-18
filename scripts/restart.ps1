@@ -31,42 +31,74 @@ function Test-IsAdministrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-function Stop-KomorebiGracefully {
+function Invoke-Komorebic {
     param(
         [Parameter(Mandatory)]
-        [string]$KomorebicPath
+        [string]$KomorebicPath,
+
+        [Parameter(Mandatory)]
+        [string[]]$ArgumentList,
+
+        [Parameter(Mandatory)]
+        [string]$Operation,
+
+        [int]$TimeoutMilliseconds = 10000
     )
 
-    $stopProcess = Start-Process `
-        -FilePath $KomorebicPath `
-        -ArgumentList @("stop", "--whkd", "--bar") `
-        -NoNewWindow `
-        -PassThru
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $KomorebicPath
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($argument in $ArgumentList) {
+        [void]$startInfo.ArgumentList.Add($argument)
+    }
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    Write-Host "komorebic: $Operation"
 
     try {
-        if (-not $stopProcess.WaitForExit(10000)) {
-            $stopProcess.Kill($true)
-            $stopProcess.WaitForExit()
-            throw "komorebic stop timed out after 10 seconds"
+        if (-not $process.Start()) {
+            throw "failed to start komorebic for $Operation"
         }
-        if ($stopProcess.ExitCode -ne 0) {
-            throw "komorebic stop failed with exit code $($stopProcess.ExitCode)"
+
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+
+        if (-not $process.WaitForExit($TimeoutMilliseconds)) {
+            $process.Kill($true)
+            $process.WaitForExit()
+            [void]$stdoutTask.GetAwaiter().GetResult()
+            [void]$stderrTask.GetAwaiter().GetResult()
+            $seconds = [Math]::Round($TimeoutMilliseconds / 1000, 1)
+            throw "komorebic $Operation timed out after $seconds seconds"
         }
+
+        $stdout = $stdoutTask.GetAwaiter().GetResult()
+        $stderr = $stderrTask.GetAwaiter().GetResult()
+
+        if ($process.ExitCode -ne 0) {
+            $details = @()
+            if (-not [string]::IsNullOrWhiteSpace($stdout)) {
+                $details += "stdout: $($stdout.Trim())"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+                $details += "stderr: $($stderr.Trim())"
+            }
+            $suffix = if ($details.Count -eq 0) { "" } else { ": $($details -join ' | ')" }
+            throw "komorebic $Operation failed with exit code $($process.ExitCode)$suffix"
+        }
+
+        return $stdout.Trim()
     } finally {
-        $stopProcess.Dispose()
+        $process.Dispose()
     }
 }
 
 if (-not (Test-IsAdministrator)) {
-    $pwshPath = (Get-Command pwsh -ErrorAction Stop).Source
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    $elevatedProcess = Start-Process `
-        -FilePath $pwshPath `
-        -ArgumentList $arguments `
-        -Verb RunAs `
-        -Wait `
-        -PassThru
-    exit $elevatedProcess.ExitCode
+    throw "restart.ps1 must be run from an elevated PowerShell 7 session"
 }
 
 $configRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
@@ -104,6 +136,8 @@ Set-ItemProperty `
     -Force
 
 $managedProcessNames = @("komorebi", "komorebi-bar", "whkd")
+
+Write-Host "=== Stopping komorebi ==="
 $runningProcesses = Get-Process -Name $managedProcessNames -ErrorAction SilentlyContinue
 $komorebiProcesses = @($runningProcesses | Where-Object Name -eq "komorebi")
 if ($komorebiProcesses.Count -gt 1) {
@@ -111,7 +145,11 @@ if ($komorebiProcesses.Count -gt 1) {
 }
 
 if ($komorebiProcesses.Count -eq 1) {
-    Stop-KomorebiGracefully -KomorebicPath $komorebicPath
+    [void](Invoke-Komorebic `
+        -KomorebicPath $komorebicPath `
+        -ArgumentList @("stop", "--whkd", "--bar") `
+        -Operation "stop" `
+        -TimeoutMilliseconds 10000)
 } else {
     $orphanedHelpers = @(
         $runningProcesses | Where-Object Name -in @("komorebi-bar", "whkd")
@@ -135,18 +173,29 @@ if ($runningProcesses) {
 
     if ($runningProcesses) {
         $remaining = ($runningProcesses.Name | Sort-Object -Unique) -join ", "
-        throw "komorebi processes did not stop: $remaining"
+        throw "komorebi processes did not stop within 10 seconds: $remaining"
     }
 }
 
-$dataDirectory = (& $komorebicPath data-directory).Trim()
+Write-Host "=== Cleaning runtime files ==="
+$dataDirectory = Invoke-Komorebic `
+    -KomorebicPath $komorebicPath `
+    -ArgumentList @("data-directory") `
+    -Operation "data-directory" `
+    -TimeoutMilliseconds 10000
 if (Test-Path -LiteralPath $dataDirectory -PathType Container) {
     Get-ChildItem -LiteralPath $dataDirectory -File -Filter "komorebi-bar-*" |
         Remove-Item -Force
 }
 
-& $komorebicPath start --config $configPath --whkd --bar --clean-state
+Write-Host "=== Starting komorebi ==="
+[void](Invoke-Komorebic `
+    -KomorebicPath $komorebicPath `
+    -ArgumentList @("start", "--config", $configPath, "--whkd", "--bar", "--clean-state") `
+    -Operation "start" `
+    -TimeoutMilliseconds 15000)
 
+Write-Host "=== Waiting for managed processes ==="
 $startDeadline = [DateTime]::UtcNow.AddSeconds(15)
 do {
     $runningProcesses = Get-Process -Name $managedProcessNames -ErrorAction SilentlyContinue
@@ -159,16 +208,26 @@ do {
 } while ([DateTime]::UtcNow -lt $startDeadline)
 
 if ($missingProcesses.Count -ne 0) {
-    throw "komorebi processes did not start: $($missingProcesses -join ', ')"
+    throw "komorebi processes did not start within 15 seconds: $($missingProcesses -join ', ')"
 }
 
-$monitors = @((& $komorebicPath monitor-information | ConvertFrom-Json))
+Write-Host "=== Applying workspace layouts ==="
+$monitorJson = Invoke-Komorebic `
+    -KomorebicPath $komorebicPath `
+    -ArgumentList @("monitor-information") `
+    -Operation "monitor-information" `
+    -TimeoutMilliseconds 10000
+$monitors = @($monitorJson | ConvertFrom-Json)
 if ($monitors.Count -eq 0) {
     throw "komorebi did not detect any monitors"
 }
 
 for ($monitorIndex = 0; $monitorIndex -lt $monitors.Count; $monitorIndex++) {
-    & $komorebicPath workspace-layout $monitorIndex 0 rows
+    [void](Invoke-Komorebic `
+        -KomorebicPath $komorebicPath `
+        -ArgumentList @("workspace-layout", [string]$monitorIndex, "0", "rows") `
+        -Operation "workspace-layout monitor $monitorIndex workspace 0" `
+        -TimeoutMilliseconds 10000)
 }
 
 Write-Host "=== Running processes ==="

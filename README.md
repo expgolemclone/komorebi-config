@@ -24,7 +24,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\register-task.ps1
 
 Taskは現在のcheckoutにある`restart.ps1`, installed command directory, AutoHotkeyの絶対pathを保存し, loginの30秒後に最高権限で実行します. Repositoryまたはcommandのinstall先を移動した場合は, 同じcommandでTaskを再登録します.
 
-手動で起動または再起動する場合は, 次のcommandを実行します.
+手動で起動または再起動する場合も, 管理者PowerShell 7で次のcommandを実行します. `restart.ps1`は自己昇格せず, 非管理者sessionでは即座にerror終了します.
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
@@ -38,6 +38,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 4. 孤立したbar socket fileを削除します.
 5. Static configを指定して3 processを起動します.
 6. 自動検出した各monitorのworkspace 0へ`Rows`を適用します.
+
+すべての`komorebic`呼び出しにはtimeoutがあり, 実行前にstage名を表示します. CLIが応答しない場合はhangし続けず, timeoutしたoperation名を含むerrorで終了します.
 
 ## Key bindings
 

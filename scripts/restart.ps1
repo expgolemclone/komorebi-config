@@ -31,6 +31,32 @@ function Test-IsAdministrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Stop-KomorebiGracefully {
+    param(
+        [Parameter(Mandatory)]
+        [string]$KomorebicPath
+    )
+
+    $stopProcess = Start-Process `
+        -FilePath $KomorebicPath `
+        -ArgumentList @("stop", "--whkd", "--bar") `
+        -NoNewWindow `
+        -PassThru
+
+    try {
+        if (-not $stopProcess.WaitForExit(10000)) {
+            $stopProcess.Kill($true)
+            $stopProcess.WaitForExit()
+            throw "komorebic stop timed out after 10 seconds"
+        }
+        if ($stopProcess.ExitCode -ne 0) {
+            throw "komorebic stop failed with exit code $($stopProcess.ExitCode)"
+        }
+    } finally {
+        $stopProcess.Dispose()
+    }
+}
+
 if (-not (Test-IsAdministrator)) {
     $pwshPath = (Get-Command pwsh -ErrorAction Stop).Source
     $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
@@ -85,7 +111,7 @@ if ($komorebiProcesses.Count -gt 1) {
 }
 
 if ($komorebiProcesses.Count -eq 1) {
-    & $komorebicPath stop --whkd --bar
+    Stop-KomorebiGracefully -KomorebicPath $komorebicPath
 } else {
     $orphanedHelpers = @(
         $runningProcesses | Where-Object Name -in @("komorebi-bar", "whkd")

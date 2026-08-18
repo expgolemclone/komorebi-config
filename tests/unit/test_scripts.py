@@ -77,12 +77,21 @@ def test_restart_accepts_explicit_command_directories() -> None:
 def test_restart_uses_official_process_lifecycle() -> None:
     content = _content("restart.ps1")
 
-    assert "stop --whkd --bar" in content
+    assert 'ArgumentList @("stop", "--whkd", "--bar")' in content
     assert 'Where-Object Name -eq "komorebi"' in content
     assert "Stopping orphaned helper processes" in content
     assert "start --config $configPath --whkd --bar --clean-state" in content
     assert "monitor-information" in content
     assert "workspace-layout $monitorIndex 0 rows" in content
+
+
+def test_restart_bounds_graceful_stop() -> None:
+    content = _content("restart.ps1")
+
+    assert "$stopProcess.WaitForExit(10000)" in content
+    assert "$stopProcess.Kill($true)" in content
+    assert 'throw "komorebic stop timed out after 10 seconds"' in content
+    assert 'throw "komorebic stop failed with exit code $($stopProcess.ExitCode)"' in content
 
 
 def test_restart_uses_supported_hook_timeout() -> None:

@@ -17,6 +17,11 @@
       "kind": "Exe",
       "id": "wmplayer.exe",
       "matching_strategy": "Equals"
+    },
+    {
+      "kind": "Exe",
+      "id": "OUTLOOK.EXE",
+      "matching_strategy": "Equals"
     }
   ],
   "window_hiding_behaviour": "Cloak",

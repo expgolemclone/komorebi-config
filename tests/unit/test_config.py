@@ -59,6 +59,16 @@ def test_windows_console_is_forcibly_managed() -> None:
     ]
 
 
+def test_classic_outlook_is_ignored() -> None:
+    config = _load_json("komorebi.json")
+
+    assert {
+        "kind": "Exe",
+        "id": "OUTLOOK.EXE",
+        "matching_strategy": "Equals",
+    } in config["ignore_rules"]
+
+
 def test_all_configured_bar_widgets_are_enabled() -> None:
     config = _load_json("komorebi.bar.json")
 

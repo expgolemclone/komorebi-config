@@ -3,7 +3,7 @@
 Windows tiling window manager [komorebi][komorebi]の個人用設定です.
 
 komorebiにmonitorを自動検出させ, 各monitorでworkspace 0を1つだけ使用します. 起動時に全workspaceへ`Rows` layoutを適用します.
-Classic console windowは`ConsoleWindowClass`で強制的に管理し, 管理者権限で起動したPowerShellも整列対象に含めます. Classic Outlookは実行file pathで強制的に管理します.
+Classic console windowは`ConsoleWindowClass`で強制的に管理し, 管理者権限で起動したPowerShellも整列対象に含めます.
 
 ## Requirements
 

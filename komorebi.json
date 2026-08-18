@@ -5,11 +5,6 @@
       "kind": "Class",
       "id": "ConsoleWindowClass",
       "matching_strategy": "Equals"
-    },
-    {
-      "kind": "Path",
-      "id": "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE",
-      "matching_strategy": "Equals"
     }
   ],
   "ignore_rules": [

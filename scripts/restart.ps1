@@ -223,10 +223,27 @@ if ($monitors.Count -eq 0) {
 }
 
 for ($monitorIndex = 0; $monitorIndex -lt $monitors.Count; $monitorIndex++) {
+    $monitor = $monitors[$monitorIndex]
+    $width = [int]$monitor.size.right
+    $height = [int]$monitor.size.bottom
+
+    if ($width -le 0 -or $height -le 0) {
+        throw "monitor $monitorIndex has invalid dimensions: ${width}x${height}"
+    }
+
+    if ($height -gt $width) {
+        $layout = "rows"
+    } elseif ($width -gt $height) {
+        $layout = "columns"
+    } else {
+        throw "monitor $monitorIndex has square dimensions: ${width}x${height}"
+    }
+
+    Write-Host "Monitor $monitorIndex`: ${width}x${height} -> $layout"
     [void](Invoke-Komorebic `
         -KomorebicPath $komorebicPath `
-        -ArgumentList @("workspace-layout", [string]$monitorIndex, "0", "rows") `
-        -Operation "workspace-layout monitor $monitorIndex workspace 0" `
+        -ArgumentList @("workspace-layout", [string]$monitorIndex, "0", $layout) `
+        -Operation "workspace-layout monitor $monitorIndex workspace 0 -> $layout" `
         -TimeoutMilliseconds 10000)
 }
 

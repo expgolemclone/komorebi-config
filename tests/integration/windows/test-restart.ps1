@@ -66,9 +66,24 @@ foreach ($monitor in $state.monitors.elements) {
         $allPassed = $false
         continue
     }
-    if ($workspaces[0].layout.Default -ne "Rows") {
-        Write-Host "FAIL: workspace layout is not Rows" -ForegroundColor Red
+
+    $width = [int]$monitor.size.right
+    $height = [int]$monitor.size.bottom
+    if ($height -gt $width) {
+        $expectedLayout = "Rows"
+    } elseif ($width -gt $height) {
+        $expectedLayout = "Columns"
+    } else {
+        Write-Host "FAIL: monitor has square dimensions: ${width}x${height}" -ForegroundColor Red
         $allPassed = $false
+        continue
+    }
+
+    if ($workspaces[0].layout.Default -ne $expectedLayout) {
+        Write-Host "FAIL: workspace layout is $($workspaces[0].layout.Default), expected $expectedLayout for ${width}x${height}" -ForegroundColor Red
+        $allPassed = $false
+    } else {
+        Write-Host "PASS: ${width}x${height} monitor uses $expectedLayout" -ForegroundColor Green
     }
 }
 

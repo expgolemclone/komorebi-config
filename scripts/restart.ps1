@@ -231,12 +231,10 @@ for ($monitorIndex = 0; $monitorIndex -lt $monitors.Count; $monitorIndex++) {
         throw "monitor $monitorIndex has invalid dimensions: ${width}x${height}"
     }
 
-    if ($height -gt $width) {
-        $layout = "rows"
-    } elseif ($width -gt $height) {
+    if ($width -gt $height) {
         $layout = "columns"
     } else {
-        throw "monitor $monitorIndex has square dimensions: ${width}x${height}"
+        $layout = "rows"
     }
 
     Write-Host "Monitor $monitorIndex`: ${width}x${height} -> $layout"

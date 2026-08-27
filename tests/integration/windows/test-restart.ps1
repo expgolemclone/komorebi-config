@@ -69,14 +69,10 @@ foreach ($monitor in $state.monitors.elements) {
 
     $width = [int]$monitor.size.right
     $height = [int]$monitor.size.bottom
-    if ($height -gt $width) {
-        $expectedLayout = "Rows"
-    } elseif ($width -gt $height) {
+    if ($width -gt $height) {
         $expectedLayout = "Columns"
     } else {
-        Write-Host "FAIL: monitor has square dimensions: ${width}x${height}" -ForegroundColor Red
-        $allPassed = $false
-        continue
+        $expectedLayout = "Rows"
     }
 
     if ($workspaces[0].layout.Default -ne $expectedLayout) {

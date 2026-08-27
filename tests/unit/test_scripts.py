@@ -94,7 +94,26 @@ def test_restart_uses_official_process_lifecycle() -> None:
     )
     assert 'ArgumentList @("monitor-information")' in content
     assert (
-        'ArgumentList @("workspace-layout", [string]$monitorIndex, "0", "rows")'
+        'ArgumentList @("workspace-layout", [string]$monitorIndex, "0", $layout)'
+        in content
+    )
+
+
+def test_restart_selects_layout_from_monitor_orientation() -> None:
+    content = _content("restart.ps1")
+
+    assert "$width = [int]$monitor.size.right" in content
+    assert "$height = [int]$monitor.size.bottom" in content
+    assert "if ($height -gt $width)" in content
+    assert '$layout = "rows"' in content
+    assert "elseif ($width -gt $height)" in content
+    assert '$layout = "columns"' in content
+    assert (
+        'throw "monitor $monitorIndex has invalid dimensions: ${width}x${height}"'
+        in content
+    )
+    assert (
+        'throw "monitor $monitorIndex has square dimensions: ${width}x${height}"'
         in content
     )
 
@@ -115,7 +134,7 @@ def test_restart_bounds_every_komorebic_call() -> None:
         '"data-directory"',
         '"start"',
         '"monitor-information"',
-        '"workspace-layout monitor $monitorIndex workspace 0"',
+        '"workspace-layout monitor $monitorIndex workspace 0 -> $layout"',
     ):
         assert f"-Operation {operation}" in content
 

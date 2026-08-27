@@ -158,20 +158,8 @@ def test_restart_uses_supported_hook_timeout() -> None:
     assert "-Value 5000" not in content
 
 
-def test_scheduled_task_uses_current_checkout_and_pwsh() -> None:
-    content = _content("register-task.ps1")
-
-    assert "Get-Command pwsh" in content
-    assert "$PSScriptRoot" in content
-    assert "Get-Command komorebic" in content
-    assert "Get-Command komorebi-bar" in content
-    assert "Get-Command whkd" in content
-    assert '-KomorebiBin `"$komorebiBin`"' in content
-    assert '-WhkdBin `"$whkdBin`"' in content
-    assert '-AutoHotkeyPath `"$autoHotkeyPath`"' in content
-    assert "New-ScheduledTaskPrincipal" in content
-    assert "-RunLevel Highest" in content
-    assert "komorebi-restart.lnk" in content
+def test_scheduled_task_registration_is_owned_by_task_scheduler_repository() -> None:
+    assert not (SCRIPTS / "register-task.ps1").exists()
     assert not (SCRIPTS / "create-startup-shortcut.ps1").exists()
 
 

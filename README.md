@@ -16,13 +16,7 @@ Classic console windowは`ConsoleWindowClass`で強制的に管理し, 管理者
 
 ## Setup
 
-管理者PowerShell 7でrepository rootへ移動し, Scheduled Taskを登録します.
-
-```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\register-task.ps1
-```
-
-Taskは現在のcheckoutにある`restart.ps1`, installed command directory, AutoHotkeyの絶対pathを保存し, loginの30秒後に最高権限で実行します. Repositoryまたはcommandのinstall先を移動した場合は, 同じcommandでTaskを再登録します.
+Scheduled Task `\komorebi`は`C:\Users\0000250059\projects\TaskScheduler`で一元管理します. Taskはこのcheckoutにある`restart.ps1`, installed command directory, AutoHotkeyの絶対pathを保存し, loginの5分後に最高権限で実行します. Repositoryまたはcommandのinstall先を移動した場合は, TaskScheduler repositoryのXML definitionを更新します.
 
 手動で起動または再起動する場合も, 管理者PowerShell 7で次のcommandを実行します. `restart.ps1`は自己昇格せず, 非管理者sessionでは即座にerror終了します.
 

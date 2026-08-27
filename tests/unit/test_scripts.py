@@ -104,18 +104,15 @@ def test_restart_selects_layout_from_monitor_orientation() -> None:
 
     assert "$width = [int]$monitor.size.right" in content
     assert "$height = [int]$monitor.size.bottom" in content
-    assert "if ($height -gt $width)" in content
-    assert '$layout = "rows"' in content
-    assert "elseif ($width -gt $height)" in content
+    assert "if ($width -gt $height)" in content
     assert '$layout = "columns"' in content
+    assert "} else {" in content
+    assert '$layout = "rows"' in content
     assert (
         'throw "monitor $monitorIndex has invalid dimensions: ${width}x${height}"'
         in content
     )
-    assert (
-        'throw "monitor $monitorIndex has square dimensions: ${width}x${height}"'
-        in content
-    )
+    assert "has square dimensions" not in content
 
 
 def test_restart_bounds_every_komorebic_call() -> None:

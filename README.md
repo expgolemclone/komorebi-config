@@ -2,7 +2,7 @@
 
 Windows tiling window manager [komorebi][komorebi]の個人用設定です.
 
-komorebiにmonitorを自動検出させ, 各monitorでworkspace 0を1つだけ使用します. 起動時に全workspaceへ`Rows` layoutを適用します.
+komorebiにmonitorを自動検出させ, 各monitorでworkspace 0を1つだけ使用します. 起動時に横長monitorへ`Columns`, 縦長monitorへ`Rows` layoutを適用します.
 Classic console windowは`ConsoleWindowClass`で強制的に管理し, 管理者権限で起動したPowerShellも整列対象に含めます. Classic Outlookは`OUTLOOK.EXE`のignore ruleで管理対象外にします.
 
 ## Requirements
@@ -18,6 +18,8 @@ Classic console windowは`ConsoleWindowClass`で強制的に管理し, 管理者
 
 Scheduled Task `\komorebi`は`C:\Users\0000250059\projects\TaskScheduler`で一元管理します. Taskはこのcheckoutにある`restart.ps1`, installed command directory, AutoHotkeyの絶対pathを保存し, loginの5分後に最高権限で実行します. Repositoryまたはcommandのinstall先を移動した場合は, TaskScheduler repositoryのXML definitionを更新します.
 
+既存のAutoHotkey UIAccess processは`WM_DISPLAYCHANGE`を受信し, `QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS)`でactiveな物理display targetの集合を確認します. 2秒間変化が落ち着いた後にtarget集合が変わっていれば, Task Scheduler COM APIで既存の`\komorebi`をon-demand実行します. 接続, 切断, 同数のmonitor交換では再起動し, 解像度, 回転, primary monitorだけの変更では再起動しません. 監視用の追加process, polling loop, service, WMI consumerは使用しません.
+
 手動で起動または再起動する場合も, 管理者PowerShell 7で次のcommandを実行します. `restart.ps1`は自己昇格せず, 非管理者sessionでは即座にerror終了します.
 
 ```powershell
@@ -31,7 +33,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 3. komorebi, komorebi-bar, whkdを正式なCLIで停止します.
 4. 孤立したbar socket fileを削除します.
 5. Static configを指定して3 processを起動します.
-6. 自動検出した各monitorのworkspace 0へ`Rows`を適用します.
+6. 自動検出した各monitorのworkspace 0へ, 横長なら`Columns`, 縦長なら`Rows`を適用します.
 
 すべての`komorebic`呼び出しにはtimeoutがあり, 実行前にstage名を表示します. CLIが応答しない場合はhangし続けず, timeoutしたoperation名を含むerrorで終了します.
 

@@ -16,7 +16,7 @@ Classic console windowは`ConsoleWindowClass`で強制的に管理し, 管理者
 
 ## Setup
 
-Scheduled Task `\komorebi`は`C:\Users\0000250059\projects\TaskScheduler`で一元管理します. Taskはこのcheckoutにある`restart.ps1`, installed command directory, AutoHotkeyの絶対pathを保存し, loginの5分後に最高権限で実行します. Repositoryまたはcommandのinstall先を移動した場合は, TaskScheduler repositoryのXML definitionを更新します.
+Scheduled Task `\komorebi`は`C:\Users\0000250059\projects\settings\task-scheduler-management`で一元管理します. Taskはこのcheckoutにある`restart.ps1`, installed command directory, AutoHotkeyの絶対pathを保存し, loginの5分後に最高権限で実行します. Repositoryまたはcommandのinstall先を移動した場合は, TaskScheduler repositoryのXML definitionを更新します.
 
 既存のAutoHotkey UIAccess processは`WM_DISPLAYCHANGE`を受信し, `QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS)`でactiveな物理display targetの集合を確認します. 2秒間変化が落ち着いた後にtarget集合が変わっていれば, Task Scheduler COM APIで既存の`\komorebi`をon-demand実行します. 接続, 切断, 同数のmonitor交換では再起動し, 解像度, 回転, primary monitorだけの変更では再起動しません. 監視用の追加process, polling loop, service, WMI consumerは使用しません.
 

@@ -37,3 +37,19 @@ def test_each_monitor_has_one_rows_workspace() -> None:
         workspaces = monitor["workspaces"]["elements"]
         assert len(workspaces) == 1
         assert workspaces[0]["layout"] == {"Default": "Rows"}
+
+
+def test_excel_application_rules_are_loaded() -> None:
+    state = _komorebic(["global-state"])
+
+    assert isinstance(state, dict)
+    assert {
+        "kind": "Exe",
+        "id": "EXCEL.EXE",
+        "matching_strategy": "Equals",
+    } in state["layered_whitelist"]
+    assert {
+        "kind": "Class",
+        "id": "_WwB",
+        "matching_strategy": "Legacy",
+    } in state["ignore_identifiers"]

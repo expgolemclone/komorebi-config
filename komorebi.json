@@ -9,6 +9,11 @@
   ],
   "ignore_rules": [
     {
+      "kind": "Class",
+      "id": "_WwB",
+      "matching_strategy": "Legacy"
+    },
+    {
       "kind": "Title",
       "id": "選択UsbWatchDog",
       "matching_strategy": "Equals"
@@ -21,6 +26,13 @@
     {
       "kind": "Exe",
       "id": "OUTLOOK.EXE",
+      "matching_strategy": "Equals"
+    }
+  ],
+  "layered_applications": [
+    {
+      "kind": "Exe",
+      "id": "EXCEL.EXE",
       "matching_strategy": "Equals"
     }
   ],

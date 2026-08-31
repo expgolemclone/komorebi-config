@@ -69,6 +69,23 @@ def test_classic_outlook_is_ignored() -> None:
     } in config["ignore_rules"]
 
 
+def test_excel_main_window_is_managed_as_layered_application() -> None:
+    config = _load_json("komorebi.json")
+
+    assert config["layered_applications"] == [
+        {
+            "kind": "Exe",
+            "id": "EXCEL.EXE",
+            "matching_strategy": "Equals",
+        }
+    ]
+    assert {
+        "kind": "Class",
+        "id": "_WwB",
+        "matching_strategy": "Legacy",
+    } in config["ignore_rules"]
+
+
 def test_all_configured_bar_widgets_are_enabled() -> None:
     config = _load_json("komorebi.bar.json")
 

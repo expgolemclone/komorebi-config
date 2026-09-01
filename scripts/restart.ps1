@@ -31,6 +31,43 @@ function Test-IsAdministrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Invoke-ElevatedRestart {
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$ArgumentList
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = Join-Path $PSHOME "pwsh.exe"
+    $startInfo.UseShellExecute = $true
+    $startInfo.Verb = "RunAs"
+    foreach ($argument in $ArgumentList) {
+        [void]$startInfo.ArgumentList.Add($argument)
+    }
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    Write-Host "Requesting administrator privileges for restart.ps1"
+
+    try {
+        if (-not $process.Start()) {
+            throw "failed to start elevated restart.ps1"
+        }
+
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            throw "elevated restart.ps1 failed with exit code $($process.ExitCode)"
+        }
+    } catch [System.ComponentModel.Win32Exception] {
+        if ($_.Exception.NativeErrorCode -eq 1223) {
+            throw "administrator elevation was canceled"
+        }
+        throw "failed to start elevated restart.ps1: $($_.Exception.Message)"
+    } finally {
+        $process.Dispose()
+    }
+}
+
 function Invoke-Komorebic {
     param(
         [Parameter(Mandatory)]
@@ -98,7 +135,31 @@ function Invoke-Komorebic {
 }
 
 if (-not (Test-IsAdministrator)) {
-    throw "restart.ps1 must be run from an elevated PowerShell 7 session"
+    $elevatedArguments = [System.Collections.Generic.List[string]]::new()
+    foreach ($argument in @(
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        $PSCommandPath
+    )) {
+        $elevatedArguments.Add($argument)
+    }
+    if ($hasKomorebiBin) {
+        foreach ($argument in @(
+            "-KomorebiBin",
+            $KomorebiBin,
+            "-WhkdBin",
+            $WhkdBin,
+            "-AutoHotkeyPath",
+            $AutoHotkeyPath
+        )) {
+            $elevatedArguments.Add($argument)
+        }
+    }
+
+    Invoke-ElevatedRestart -ArgumentList $elevatedArguments.ToArray()
+    return
 }
 
 $configRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path

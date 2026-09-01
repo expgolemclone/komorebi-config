@@ -74,12 +74,29 @@ def test_restart_accepts_explicit_command_directories() -> None:
     assert 'SetEnvironmentVariable("KOMOREBI_AUTOHOTKEY"' in content
 
 
-def test_restart_requires_explicit_elevation() -> None:
+def test_restart_self_elevates_with_uac() -> None:
     content = _content("restart.ps1")
 
-    assert 'throw "restart.ps1 must be run from an elevated PowerShell 7 session"' in content
-    assert "-Verb RunAs" not in content
-    assert "-Wait `" not in content
+    assert "function Invoke-ElevatedRestart" in content
+    assert '$startInfo.FileName = Join-Path $PSHOME "pwsh.exe"' in content
+    assert "$startInfo.UseShellExecute = $true" in content
+    assert '$startInfo.Verb = "RunAs"' in content
+    assert "$startInfo.ArgumentList.Add($argument)" in content
+    assert '"-File"' in content
+    assert "$PSCommandPath" in content
+    for parameter in ("KomorebiBin", "WhkdBin", "AutoHotkeyPath"):
+        assert f'"-{parameter}"' in content
+    assert "$process.WaitForExit()" in content
+    assert "$process.ExitCode -ne 0" in content
+    assert "NativeErrorCode -eq 1223" in content
+    assert 'throw "restart.ps1 must be run from an elevated PowerShell 7 session"' not in content
+
+
+def test_readme_documents_restart_uac_elevation() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "非管理者sessionではUACを表示" in readme
+    assert "自己昇格せず" not in readme
 
 
 def test_restart_uses_official_process_lifecycle() -> None:

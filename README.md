@@ -21,7 +21,7 @@ Scheduled Task `\komorebi` の定義と登録は, [task-scheduler-managementの`
 
 既存のAutoHotkey UIAccess processは`WM_DISPLAYCHANGE`を受信し, `QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS)`でactiveな物理display targetの集合を確認します. 2秒間変化が落ち着いた後にtarget集合が変わっていれば, Task Scheduler COM APIで既存の`\komorebi`をon-demand実行します. 接続, 切断, 同数のmonitor交換では再起動し, 解像度, 回転, primary monitorだけの変更では再起動しません. 監視用の追加process, polling loop, service, WMI consumerは使用しません.
 
-手動で起動または再起動する場合も, 管理者PowerShell 7で次のcommandを実行します. `restart.ps1`は自己昇格せず, 非管理者sessionでは即座にerror終了します.
+手動で起動または再起動する場合は, PowerShell 7で次のcommandを実行します. `restart.ps1`は非管理者sessionではUACを表示し, 許可後に管理者processで処理を続行します.
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1

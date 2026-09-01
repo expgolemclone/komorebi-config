@@ -11,12 +11,9 @@ $whkdPath = (Get-Command whkd -ErrorAction Stop).Source
 
 Write-Host "=== restart.ps1 integration test ===" -ForegroundColor Cyan
 
-if (Get-Process -Name komorebi -ErrorAction SilentlyContinue) {
-    & $komorebicPath stop --whkd --bar
-}
-$leftoverHelpers = Get-Process -Name @("komorebi-bar", "whkd") -ErrorAction SilentlyContinue
-if ($leftoverHelpers) {
-    Stop-Process -Id $leftoverHelpers.Id -Force
+$runningProcesses = Get-Process -Name @("komorebi", "komorebi-bar", "whkd") -ErrorAction SilentlyContinue
+if ($runningProcesses) {
+    Stop-Process -Id $runningProcesses.Id -Force
 }
 
 $whkdArguments = "-c `"$whkdConfigPath`""

@@ -99,15 +99,28 @@ def test_readme_documents_restart_uac_elevation() -> None:
     assert "自己昇格せず" not in readme
 
 
-def test_restart_uses_official_process_lifecycle() -> None:
+def test_restart_uses_direct_process_lifecycle() -> None:
     content = _content("restart.ps1")
 
-    assert 'ArgumentList @("stop", "--whkd", "--bar")' in content
-    assert 'Where-Object Name -eq "komorebi"' in content
-    assert "Stopping orphaned helper processes" in content
+    assert "Stopping managed processes" in content
+    assert "Stop-Process -Id $runningProcesses.Id -Force" in content
+    assert "function Start-ManagedProcess" in content
+    assert "function Wait-KomorebiReady" in content
+    assert "$startInfo.UseShellExecute = $true" in content
+    assert (
+        "$startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden"
+        in content
+    )
+    assert (
+        'ArgumentList @("--config", $configPath, "--clean-state")'
+        in content
+    )
+    assert 'ArgumentList @("--config", $whkdConfigPath)' in content
+    assert 'ArgumentList @("--config", $barConfigPath)' in content
+    assert 'ArgumentList @("stop", "--whkd", "--bar")' not in content
     assert (
         'ArgumentList @("start", "--config", $configPath, "--whkd", "--bar", "--clean-state")'
-        in content
+        not in content
     )
     assert 'ArgumentList @("monitor-information")' in content
     assert (
@@ -144,10 +157,8 @@ def test_restart_bounds_every_komorebic_call() -> None:
     assert "& $komorebicPath" not in content
 
     for operation in (
-        '"stop"',
         '"data-directory"',
-        '"start"',
-        '"monitor-information"',
+        '"readiness probe"',
         '"workspace-layout monitor $monitorIndex workspace 0 -> $layout"',
     ):
         assert f"-Operation {operation}" in content
@@ -160,6 +171,8 @@ def test_restart_reports_progress_before_runtime_operations() -> None:
         "=== Stopping komorebi ===",
         "=== Cleaning runtime files ===",
         "=== Starting komorebi ===",
+        "=== Waiting for komorebi ===",
+        "=== Starting helper processes ===",
         "=== Waiting for managed processes ===",
         "=== Applying workspace layouts ===",
         "=== Running processes ===",

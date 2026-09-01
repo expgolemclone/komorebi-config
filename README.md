@@ -31,12 +31,12 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 
 1. `KOMOREBI_CONFIG_HOME`と`WHKD_CONFIG_HOME`を設定します.
 2. `LowLevelHooksTimeout`をWindowsの上限である1000 msへ設定します.
-3. komorebi, komorebi-bar, whkdを正式なCLIで停止します.
+3. komorebi, komorebi-bar, whkdの既存processを終了します.
 4. 孤立したbar socket fileを削除します.
-5. Static configを指定して3 processを起動します.
+5. Static configを指定してkomorebiを起動し, IPC serverの応答後にwhkdとkomorebi-barを起動します.
 6. 自動検出した各monitorのworkspace 0へ, 横長なら`Columns`, 縦長なら`Rows`を適用します.
 
-すべての`komorebic`呼び出しにはtimeoutがあり, 実行前にstage名を表示します. CLIが応答しない場合はhangし続けず, timeoutしたoperation名を含むerrorで終了します.
+3 processは検証済みの実体pathとconfig pathを指定して直接起動するため, `komorebic start`のnetwork更新確認に再起動を依存させません. すべての`komorebic`呼び出しにはtimeoutがあり, 実行前にstage名を表示します. CLIが応答しない場合はhangし続けず, timeoutしたoperation名を含むerrorで終了します.
 
 ## Key bindings
 

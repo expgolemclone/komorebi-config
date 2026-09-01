@@ -134,6 +134,71 @@ function Invoke-Komorebic {
     }
 }
 
+function Start-ManagedProcess {
+    param(
+        [Parameter(Mandatory)]
+        [string]$FilePath,
+
+        [Parameter(Mandatory)]
+        [string[]]$ArgumentList,
+
+        [Parameter(Mandatory)]
+        [string]$ProcessName
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.UseShellExecute = $true
+    $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+    foreach ($argument in $ArgumentList) {
+        [void]$startInfo.ArgumentList.Add($argument)
+    }
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    Write-Host "Starting $ProcessName"
+
+    try {
+        if (-not $process.Start()) {
+            throw "failed to start $ProcessName"
+        }
+    } finally {
+        $process.Dispose()
+    }
+}
+
+function Wait-KomorebiReady {
+    param(
+        [Parameter(Mandatory)]
+        [string]$KomorebicPath,
+
+        [int]$TimeoutMilliseconds = 15000
+    )
+
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
+    $lastFailure = "no readiness probe was completed"
+    do {
+        if (-not (Get-Process -Name "komorebi" -ErrorAction SilentlyContinue)) {
+            throw "komorebi exited before its IPC server became ready"
+        }
+
+        try {
+            return Invoke-Komorebic `
+                -KomorebicPath $KomorebicPath `
+                -ArgumentList @("monitor-information") `
+                -Operation "readiness probe" `
+                -TimeoutMilliseconds 2000
+        } catch {
+            $lastFailure = $_.Exception.Message
+        }
+
+        Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $deadline)
+
+    $seconds = [Math]::Round($TimeoutMilliseconds / 1000, 1)
+    throw "komorebi IPC server did not become ready within $seconds seconds: $lastFailure"
+}
+
 if (-not (Test-IsAdministrator)) {
     $elevatedArguments = [System.Collections.Generic.List[string]]::new()
     foreach ($argument in @(
@@ -164,8 +229,12 @@ if (-not (Test-IsAdministrator)) {
 
 $configRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $configPath = Join-Path $configRoot "komorebi.json"
-if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
-    throw "komorebi.json was not found: $configPath"
+$barConfigPath = Join-Path $configRoot "komorebi.bar.json"
+$whkdConfigPath = Join-Path $configRoot "whkdrc"
+foreach ($requiredFile in @($configPath, $barConfigPath, $whkdConfigPath)) {
+    if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
+        throw "required configuration file was not found: $requiredFile"
+    }
 }
 if (-not $hasAutoHotkeyPath) {
     $autoHotkeyInstallLocation = Get-ItemPropertyValue `
@@ -178,9 +247,10 @@ if (-not (Test-Path -LiteralPath $AutoHotkeyPath -PathType Leaf)) {
     throw "AutoHotkey v2 executable was not found: $AutoHotkeyPath"
 }
 
+$komorebiPath = (Get-Command komorebi -ErrorAction Stop).Source
 $komorebicPath = (Get-Command komorebic -ErrorAction Stop).Source
-(Get-Command komorebi-bar -ErrorAction Stop) | Out-Null
-(Get-Command whkd -ErrorAction Stop) | Out-Null
+$komorebiBarPath = (Get-Command komorebi-bar -ErrorAction Stop).Source
+$whkdPath = (Get-Command whkd -ErrorAction Stop).Source
 
 [System.Environment]::SetEnvironmentVariable("KOMOREBI_CONFIG_HOME", $configRoot, "User")
 [System.Environment]::SetEnvironmentVariable("WHKD_CONFIG_HOME", $configRoot, "User")
@@ -199,30 +269,14 @@ Set-ItemProperty `
 $managedProcessNames = @("komorebi", "komorebi-bar", "whkd")
 
 Write-Host "=== Stopping komorebi ==="
-$runningProcesses = Get-Process -Name $managedProcessNames -ErrorAction SilentlyContinue
-$komorebiProcesses = @($runningProcesses | Where-Object Name -eq "komorebi")
-if ($komorebiProcesses.Count -gt 1) {
-    throw "multiple komorebi processes are running"
+$runningProcesses = @(Get-Process -Name $managedProcessNames -ErrorAction SilentlyContinue)
+if ($runningProcesses.Count -ne 0) {
+    $runningNames = ($runningProcesses.Name | Sort-Object -Unique) -join ", "
+    Write-Host "Stopping managed processes: $runningNames"
+    Stop-Process -Id $runningProcesses.Id -Force
 }
 
-if ($komorebiProcesses.Count -eq 1) {
-    [void](Invoke-Komorebic `
-        -KomorebicPath $komorebicPath `
-        -ArgumentList @("stop", "--whkd", "--bar") `
-        -Operation "stop" `
-        -TimeoutMilliseconds 10000)
-} else {
-    $orphanedHelpers = @(
-        $runningProcesses | Where-Object Name -in @("komorebi-bar", "whkd")
-    )
-    if ($orphanedHelpers.Count -ne 0) {
-        $orphanedNames = ($orphanedHelpers.Name | Sort-Object -Unique) -join ", "
-        Write-Host "Stopping orphaned helper processes: $orphanedNames"
-        Stop-Process -Id $orphanedHelpers.Id -Force
-    }
-}
-
-if ($runningProcesses) {
+if ($runningProcesses.Count -ne 0) {
     $stopDeadline = [DateTime]::UtcNow.AddSeconds(10)
     do {
         $runningProcesses = Get-Process -Name $managedProcessNames -ErrorAction SilentlyContinue
@@ -250,11 +304,23 @@ if (Test-Path -LiteralPath $dataDirectory -PathType Container) {
 }
 
 Write-Host "=== Starting komorebi ==="
-[void](Invoke-Komorebic `
-    -KomorebicPath $komorebicPath `
-    -ArgumentList @("start", "--config", $configPath, "--whkd", "--bar", "--clean-state") `
-    -Operation "start" `
-    -TimeoutMilliseconds 15000)
+Start-ManagedProcess `
+    -FilePath $komorebiPath `
+    -ArgumentList @("--config", $configPath, "--clean-state") `
+    -ProcessName "komorebi"
+
+Write-Host "=== Waiting for komorebi ==="
+$monitorJson = Wait-KomorebiReady -KomorebicPath $komorebicPath
+
+Write-Host "=== Starting helper processes ==="
+Start-ManagedProcess `
+    -FilePath $whkdPath `
+    -ArgumentList @("--config", $whkdConfigPath) `
+    -ProcessName "whkd"
+Start-ManagedProcess `
+    -FilePath $komorebiBarPath `
+    -ArgumentList @("--config", $barConfigPath) `
+    -ProcessName "komorebi-bar"
 
 Write-Host "=== Waiting for managed processes ==="
 $startDeadline = [DateTime]::UtcNow.AddSeconds(15)
@@ -273,11 +339,6 @@ if ($missingProcesses.Count -ne 0) {
 }
 
 Write-Host "=== Applying workspace layouts ==="
-$monitorJson = Invoke-Komorebic `
-    -KomorebicPath $komorebicPath `
-    -ArgumentList @("monitor-information") `
-    -Operation "monitor-information" `
-    -TimeoutMilliseconds 10000
 $monitors = @($monitorJson | ConvertFrom-Json)
 if ($monitors.Count -eq 0) {
     throw "komorebi did not detect any monitors"

@@ -27,16 +27,21 @@ def test_komorebi_detects_at_least_one_monitor() -> None:
     assert len(monitors) >= 1
 
 
-def test_each_monitor_has_one_rows_workspace() -> None:
+def test_each_monitor_has_one_orientation_based_workspace() -> None:
     state = _komorebic(["state"])
 
     assert isinstance(state, dict)
     monitors = state["monitors"]["elements"]
     assert len(monitors) >= 1
     for monitor in monitors:
+        width = monitor["size"]["right"]
+        height = monitor["size"]["bottom"]
+        assert width > 0
+        assert height > 0
+        expected_layout = "Columns" if width > height else "Rows"
         workspaces = monitor["workspaces"]["elements"]
         assert len(workspaces) == 1
-        assert workspaces[0]["layout"] == {"Default": "Rows"}
+        assert workspaces[0]["layout"] == {"Default": expected_layout}
 
 
 def test_excel_application_rules_are_loaded() -> None:

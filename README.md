@@ -4,7 +4,7 @@ Windows tiling window manager [komorebi][komorebi]の個人用設定です.
 
 komorebiにmonitorを自動検出させ, 各monitorでworkspace 0を1つだけ使用します. 起動時に横長monitorへ`Columns`, 縦長monitorへ`Rows` layoutを適用します.
 Classic console windowは`ConsoleWindowClass`で強制的に管理し, 管理者権限で起動したPowerShellも整列対象に含めます. Classic Outlookは`OUTLOOK.EXE`のignore ruleで管理対象外にします.
-Excelは`EXCEL.EXE`をlayered applicationとして管理し, `_WwB` classのpopupと補助windowだけを管理対象外にします.
+Excel, PowerPoint, Wordはそれぞれ`EXCEL.EXE`, `POWERPNT.EXE`, `WINWORD.EXE`をlayered applicationとして管理し, `_WwB` classのpopupと補助windowだけを管理対象外にします.
 
 ## Requirements
 

@@ -44,15 +44,16 @@ def test_each_monitor_has_one_orientation_based_workspace() -> None:
         assert workspaces[0]["layout"] == {"Default": expected_layout}
 
 
-def test_excel_application_rules_are_loaded() -> None:
+def test_office_application_rules_are_loaded() -> None:
     state = _komorebic(["global-state"])
 
     assert isinstance(state, dict)
-    assert {
-        "kind": "Exe",
-        "id": "EXCEL.EXE",
-        "matching_strategy": "Equals",
-    } in state["layered_whitelist"]
+    for executable in ("EXCEL.EXE", "POWERPNT.EXE", "WINWORD.EXE"):
+        assert {
+            "kind": "Exe",
+            "id": executable,
+            "matching_strategy": "Equals",
+        } in state["layered_whitelist"]
     assert {
         "kind": "Class",
         "id": "_WwB",

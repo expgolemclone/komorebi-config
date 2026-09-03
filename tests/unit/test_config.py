@@ -69,7 +69,7 @@ def test_classic_outlook_is_ignored() -> None:
     } in config["ignore_rules"]
 
 
-def test_excel_main_window_is_managed_as_layered_application() -> None:
+def test_office_main_windows_are_managed_as_layered_applications() -> None:
     config = _load_json("komorebi.json")
 
     assert config["layered_applications"] == [
@@ -77,7 +77,17 @@ def test_excel_main_window_is_managed_as_layered_application() -> None:
             "kind": "Exe",
             "id": "EXCEL.EXE",
             "matching_strategy": "Equals",
-        }
+        },
+        {
+            "kind": "Exe",
+            "id": "POWERPNT.EXE",
+            "matching_strategy": "Equals",
+        },
+        {
+            "kind": "Exe",
+            "id": "WINWORD.EXE",
+            "matching_strategy": "Equals",
+        },
     ]
     assert {
         "kind": "Class",

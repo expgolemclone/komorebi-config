@@ -116,7 +116,10 @@ def test_restart_uses_direct_process_lifecycle() -> None:
         in content
     )
     assert 'ArgumentList @("--config", $whkdConfigPath)' in content
-    assert 'ArgumentList @("--config", $barConfigPath)' in content
+    assert "Get-Command komorebi-bar" not in content
+    assert 'ProcessName "komorebi-bar"' not in content
+    assert '@("komorebi", "komorebi-bar", "whkd")' in content
+    assert '@("komorebi", "whkd")' in content
     assert 'ArgumentList @("stop", "--whkd", "--bar")' not in content
     assert (
         'ArgumentList @("start", "--config", $configPath, "--whkd", "--bar", "--clean-state")'
@@ -157,7 +160,6 @@ def test_restart_bounds_every_komorebic_call() -> None:
     assert "& $komorebicPath" not in content
 
     for operation in (
-        '"data-directory"',
         '"readiness probe"',
         '"workspace-layout monitor $monitorIndex workspace 0 -> $layout"',
     ):
@@ -169,7 +171,6 @@ def test_restart_reports_progress_before_runtime_operations() -> None:
 
     for stage in (
         "=== Stopping komorebi ===",
-        "=== Cleaning runtime files ===",
         "=== Starting komorebi ===",
         "=== Waiting for komorebi ===",
         "=== Starting helper processes ===",

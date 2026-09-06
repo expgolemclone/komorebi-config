@@ -36,7 +36,7 @@ try {
     exit 1
 }
 
-$expectedProcesses = @("komorebi", "komorebi-bar", "whkd")
+$expectedProcesses = @("komorebi", "whkd")
 foreach ($name in $expectedProcesses) {
     $processes = @(Get-Process -Name $name -ErrorAction SilentlyContinue)
     if ($processes.Count -eq 1) {
@@ -45,6 +45,14 @@ foreach ($name in $expectedProcesses) {
         Write-Host "FAIL: expected one $name process, found $($processes.Count)" -ForegroundColor Red
         $allPassed = $false
     }
+}
+
+$barProcesses = @(Get-Process -Name "komorebi-bar" -ErrorAction SilentlyContinue)
+if ($barProcesses.Count -eq 0) {
+    Write-Host "PASS: komorebi-bar is not running" -ForegroundColor Green
+} else {
+    Write-Host "FAIL: komorebi-bar is running" -ForegroundColor Red
+    $allPassed = $false
 }
 
 $whkdProcess = Get-Process -Name whkd -ErrorAction SilentlyContinue

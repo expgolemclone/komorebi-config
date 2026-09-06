@@ -229,9 +229,8 @@ if (-not (Test-IsAdministrator)) {
 
 $configRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $configPath = Join-Path $configRoot "komorebi.json"
-$barConfigPath = Join-Path $configRoot "komorebi.bar.json"
 $whkdConfigPath = Join-Path $configRoot "whkdrc"
-foreach ($requiredFile in @($configPath, $barConfigPath, $whkdConfigPath)) {
+foreach ($requiredFile in @($configPath, $whkdConfigPath)) {
     if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
         throw "required configuration file was not found: $requiredFile"
     }
@@ -249,7 +248,6 @@ if (-not (Test-Path -LiteralPath $AutoHotkeyPath -PathType Leaf)) {
 
 $komorebiPath = (Get-Command komorebi -ErrorAction Stop).Source
 $komorebicPath = (Get-Command komorebic -ErrorAction Stop).Source
-$komorebiBarPath = (Get-Command komorebi-bar -ErrorAction Stop).Source
 $whkdPath = (Get-Command whkd -ErrorAction Stop).Source
 
 [System.Environment]::SetEnvironmentVariable("KOMOREBI_CONFIG_HOME", $configRoot, "User")
@@ -266,10 +264,11 @@ Set-ItemProperty `
     -Type DWord `
     -Force
 
-$managedProcessNames = @("komorebi", "komorebi-bar", "whkd")
+$processNamesToStop = @("komorebi", "komorebi-bar", "whkd")
+$managedProcessNames = @("komorebi", "whkd")
 
 Write-Host "=== Stopping komorebi ==="
-$runningProcesses = @(Get-Process -Name $managedProcessNames -ErrorAction SilentlyContinue)
+$runningProcesses = @(Get-Process -Name $processNamesToStop -ErrorAction SilentlyContinue)
 if ($runningProcesses.Count -ne 0) {
     $runningNames = ($runningProcesses.Name | Sort-Object -Unique) -join ", "
     Write-Host "Stopping managed processes: $runningNames"
@@ -279,7 +278,7 @@ if ($runningProcesses.Count -ne 0) {
 if ($runningProcesses.Count -ne 0) {
     $stopDeadline = [DateTime]::UtcNow.AddSeconds(10)
     do {
-        $runningProcesses = Get-Process -Name $managedProcessNames -ErrorAction SilentlyContinue
+        $runningProcesses = Get-Process -Name $processNamesToStop -ErrorAction SilentlyContinue
         if (-not $runningProcesses) {
             break
         }
@@ -290,17 +289,6 @@ if ($runningProcesses.Count -ne 0) {
         $remaining = ($runningProcesses.Name | Sort-Object -Unique) -join ", "
         throw "komorebi processes did not stop within 10 seconds: $remaining"
     }
-}
-
-Write-Host "=== Cleaning runtime files ==="
-$dataDirectory = Invoke-Komorebic `
-    -KomorebicPath $komorebicPath `
-    -ArgumentList @("data-directory") `
-    -Operation "data-directory" `
-    -TimeoutMilliseconds 10000
-if (Test-Path -LiteralPath $dataDirectory -PathType Container) {
-    Get-ChildItem -LiteralPath $dataDirectory -File -Filter "komorebi-bar-*" |
-        Remove-Item -Force
 }
 
 Write-Host "=== Starting komorebi ==="
@@ -317,10 +305,6 @@ Start-ManagedProcess `
     -FilePath $whkdPath `
     -ArgumentList @("--config", $whkdConfigPath) `
     -ProcessName "whkd"
-Start-ManagedProcess `
-    -FilePath $komorebiBarPath `
-    -ArgumentList @("--config", $barConfigPath) `
-    -ProcessName "komorebi-bar"
 
 Write-Host "=== Waiting for managed processes ==="
 $startDeadline = [DateTime]::UtcNow.AddSeconds(15)

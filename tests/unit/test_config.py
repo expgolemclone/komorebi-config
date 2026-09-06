@@ -1,4 +1,4 @@
-"""komorebi, bar, whkdの静的設定を検証する。"""
+"""komorebiとwhkdの静的設定を検証する."""
 
 from __future__ import annotations
 
@@ -24,11 +24,12 @@ def test_komorebi_uses_automatic_monitor_detection() -> None:
 
 def test_config_schemas_match_the_supported_komorebi_version() -> None:
     komorebi = _load_json("komorebi.json")
-    bar = _load_json("komorebi.bar.json")
 
     assert f"/v{KOMOREBI_VERSION}/schema.json" in komorebi["$schema"]
-    assert f"/v{KOMOREBI_VERSION}/schema.bar.json" in bar["$schema"]
-    assert bar["font_family"] == "JetBrainsMono NF Regular"
+
+
+def test_bar_configuration_is_absent() -> None:
+    assert not (ROOT / "komorebi.bar.json").exists()
 
 
 def test_padding_and_border_configuration() -> None:
@@ -94,23 +95,6 @@ def test_office_main_windows_are_managed_as_layered_applications() -> None:
         "id": "_WwB",
         "matching_strategy": "Legacy",
     } in config["ignore_rules"]
-
-
-def test_all_configured_bar_widgets_are_enabled() -> None:
-    config = _load_json("komorebi.bar.json")
-
-    def assert_enabled(value: object, path: str) -> None:
-        if isinstance(value, dict):
-            if "enable" in value:
-                assert value["enable"] is True, f"{path}.enable is false"
-            for key, child in value.items():
-                assert_enabled(child, f"{path}.{key}")
-        elif isinstance(value, list):
-            for index, child in enumerate(value):
-                assert_enabled(child, f"{path}[{index}]")
-
-    assert_enabled(config["left_widgets"], "left_widgets")
-    assert_enabled(config["right_widgets"], "right_widgets")
 
 
 def test_whkd_uses_only_workspace_zero() -> None:

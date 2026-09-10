@@ -33,6 +33,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 3. komorebi, komorebi-bar, whkdの既存processを終了します.
 4. Static configを指定してkomorebiを起動し, IPC serverの応答後にwhkdを起動します. komorebi-barは起動しません.
 5. 自動検出した各monitorのworkspace 0へ, 横長なら`Columns`, 縦長なら`Rows`を適用します.
+6. Windowsの`DisplayEnhancementService`を再起動し, 夜間モードの表示効果を再適用します.
 
 2 processは検証済みの実体pathとconfig pathを指定して直接起動するため, `komorebic start`のnetwork更新確認に再起動を依存させません. すべての`komorebic`呼び出しにはtimeoutがあり, 実行前にstage名を表示します. CLIが応答しない場合はhangし続けず, timeoutしたoperation名を含むerrorで終了します.
 

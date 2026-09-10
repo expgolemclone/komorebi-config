@@ -176,9 +176,27 @@ def test_restart_reports_progress_before_runtime_operations() -> None:
         "=== Starting helper processes ===",
         "=== Waiting for managed processes ===",
         "=== Applying workspace layouts ===",
+        "=== Restarting Windows Night Light ===",
         "=== Running processes ===",
     ):
         assert stage in content
+
+
+def test_restart_restarts_windows_night_light_service_after_layouts() -> None:
+    content = _content("restart.ps1")
+
+    assert "function Restart-WindowsNightLight" in content
+    assert 'Restart-Service `' in content
+    assert '-Name "DisplayEnhancementService"' in content
+    assert "[System.ServiceProcess.ServiceControllerStatus]::Running" in content
+    assert "[TimeSpan]::FromMilliseconds($TimeoutMilliseconds)" in content
+    assert "CloudStore" not in content
+    assert "Stop-Process -Name explorer" not in content
+
+    layout_index = content.index("=== Applying workspace layouts ===")
+    night_light_index = content.index("=== Restarting Windows Night Light ===")
+    running_processes_index = content.index("=== Running processes ===")
+    assert layout_index < night_light_index < running_processes_index
 
 
 def test_restart_uses_supported_hook_timeout() -> None:

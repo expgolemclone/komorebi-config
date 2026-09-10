@@ -11,6 +11,15 @@ $whkdPath = (Get-Command whkd -ErrorAction Stop).Source
 
 Write-Host "=== restart.ps1 integration test ===" -ForegroundColor Cyan
 
+$nightLightServiceBefore = Get-CimInstance `
+    -ClassName Win32_Service `
+    -Filter "Name='DisplayEnhancementService'"
+if (-not $nightLightServiceBefore) {
+    Write-Host "FAIL: DisplayEnhancementService was not found" -ForegroundColor Red
+    exit 1
+}
+$nightLightProcessIdBefore = [uint32]$nightLightServiceBefore.ProcessId
+
 $runningProcesses = Get-Process -Name @("komorebi", "komorebi-bar", "whkd") -ErrorAction SilentlyContinue
 if ($runningProcesses) {
     Stop-Process -Id $runningProcesses.Id -Force
@@ -53,6 +62,29 @@ if ($barProcesses.Count -eq 0) {
 } else {
     Write-Host "FAIL: komorebi-bar is running" -ForegroundColor Red
     $allPassed = $false
+}
+
+$nightLightServiceAfter = Get-CimInstance `
+    -ClassName Win32_Service `
+    -Filter "Name='DisplayEnhancementService'"
+$nightLightProcessIdAfter = [uint32]$nightLightServiceAfter.ProcessId
+if ($nightLightServiceAfter.State -ne "Running" -or $nightLightProcessIdAfter -eq 0) {
+    Write-Host `
+        "FAIL: DisplayEnhancementService is not running after restart.ps1" `
+        -ForegroundColor Red
+    $allPassed = $false
+} elseif (
+    $nightLightProcessIdBefore -ne 0 -and
+    $nightLightProcessIdAfter -eq $nightLightProcessIdBefore
+) {
+    Write-Host `
+        "FAIL: DisplayEnhancementService process ID did not change" `
+        -ForegroundColor Red
+    $allPassed = $false
+} else {
+    Write-Host `
+        "PASS: DisplayEnhancementService restarted and is running" `
+        -ForegroundColor Green
 }
 
 $whkdProcess = Get-Process -Name whkd -ErrorAction SilentlyContinue

@@ -199,6 +199,34 @@ function Wait-KomorebiReady {
     throw "komorebi IPC server did not become ready within $seconds seconds: $lastFailure"
 }
 
+function Restart-WindowsNightLight {
+    param(
+        [int]$TimeoutMilliseconds = 10000
+    )
+
+    $service = $null
+    try {
+        $service = Restart-Service `
+            -Name "DisplayEnhancementService" `
+            -Force `
+            -PassThru `
+            -ErrorAction Stop
+        $service.WaitForStatus(
+            [System.ServiceProcess.ServiceControllerStatus]::Running,
+            [TimeSpan]::FromMilliseconds($TimeoutMilliseconds)
+        )
+    } catch [System.ServiceProcess.TimeoutException] {
+        $seconds = [Math]::Round($TimeoutMilliseconds / 1000, 1)
+        throw "DisplayEnhancementService did not return to running within $seconds seconds"
+    } catch {
+        throw "failed to restart Windows Night Light: $($_.Exception.Message)"
+    } finally {
+        if ($null -ne $service) {
+            $service.Dispose()
+        }
+    }
+}
+
 if (-not (Test-IsAdministrator)) {
     $elevatedArguments = [System.Collections.Generic.List[string]]::new()
     foreach ($argument in @(
@@ -350,6 +378,9 @@ for ($monitorIndex = 0; $monitorIndex -lt $monitors.Count; $monitorIndex++) {
         -Operation "workspace-layout monitor $monitorIndex workspace 0 -> $layout" `
         -TimeoutMilliseconds 10000)
 }
+
+Write-Host "=== Restarting Windows Night Light ==="
+Restart-WindowsNightLight
 
 Write-Host "=== Running processes ==="
 Get-Process -Name $managedProcessNames | Format-Table Name, Id -AutoSize

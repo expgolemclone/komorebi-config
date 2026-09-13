@@ -9,7 +9,68 @@ $whkdConfigPath = Join-Path $repoRoot "whkdrc"
 $komorebicPath = (Get-Command komorebic -ErrorAction Stop).Source
 $whkdPath = (Get-Command whkd -ErrorAction Stop).Source
 
+function Get-NightLightDataSnapshot {
+    $cloudStorePath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CloudStore\Store\DefaultAccount\Cloud"
+    $snapshotParts = @(
+        Get-ChildItem -LiteralPath $cloudStorePath -Recurse -ErrorAction Stop |
+            Where-Object { $_.Name -match "bluelightreduction" } |
+            Sort-Object Name |
+            ForEach-Object {
+                $properties = Get-ItemProperty `
+                    -LiteralPath $_.PSPath `
+                    -ErrorAction Stop
+                $data = $properties.Data
+                if ($null -ne $data) {
+                    "$($_.Name)=$([Convert]::ToHexString([byte[]]$data))"
+                }
+            }
+    )
+
+    return $snapshotParts -join "`n"
+}
+
 Write-Host "=== restart.ps1 integration test ===" -ForegroundColor Cyan
+
+if (-not (Test-Path -LiteralPath $restartPath -PathType Leaf)) {
+    Write-Host "FAIL: restart.ps1 was not found" -ForegroundColor Red
+    exit 1
+}
+$restartTask = Get-ScheduledTask `
+    -TaskName "komorebi" `
+    -TaskPath "\" `
+    -ErrorAction SilentlyContinue
+if ($null -eq $restartTask) {
+    Write-Host "FAIL: managed komorebi Scheduled Task was not found" -ForegroundColor Red
+    exit 1
+}
+$taskInfoBefore = Get-ScheduledTaskInfo `
+    -TaskName "komorebi" `
+    -TaskPath "\" `
+    -ErrorAction Stop
+
+$displayAdapters = @(
+    Get-PnpDevice `
+        -Class "Display" `
+        -PresentOnly `
+        -Status "OK" `
+        -ErrorAction Stop
+)
+if ($displayAdapters.Count -ne 1) {
+    Write-Host `
+        "FAIL: expected one healthy display adapter, found $($displayAdapters.Count)" `
+        -ForegroundColor Red
+    exit 1
+}
+$displayAdapter = $displayAdapters[0]
+$displayAdapterArrivalBefore = (
+    Get-PnpDeviceProperty `
+        -InstanceId $displayAdapter.InstanceId `
+        -KeyName "DEVPKEY_Device_LastArrivalDate" `
+        -ErrorAction Stop
+).Data
+Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+$activeScreenCountBefore = [System.Windows.Forms.Screen]::AllScreens.Count
+$nightLightDataBefore = Get-NightLightDataSnapshot
 
 $nightLightServiceBefore = Get-CimInstance `
     -ClassName Win32_Service `
@@ -38,11 +99,83 @@ if ($orphanedWhkd.HasExited) {
 }
 Write-Host "Prepared orphaned whkd process: $($orphanedWhkd.Id)" -ForegroundColor Cyan
 
-try {
-    & $restartPath
-} catch {
-    Write-Host "FAIL: restart.ps1 failed: $_" -ForegroundColor Red
+Start-ScheduledTask `
+    -TaskName "komorebi" `
+    -TaskPath "\" `
+    -ErrorAction Stop
+$taskDeadline = [DateTime]::UtcNow.AddMinutes(2)
+do {
+    Start-Sleep -Milliseconds 500
+    $restartTask = Get-ScheduledTask `
+        -TaskName "komorebi" `
+        -TaskPath "\" `
+        -ErrorAction Stop
+    $taskInfoAfter = Get-ScheduledTaskInfo `
+        -TaskName "komorebi" `
+        -TaskPath "\" `
+        -ErrorAction Stop
+    if (
+        $restartTask.State -eq "Ready" -and
+        $taskInfoAfter.LastRunTime -gt $taskInfoBefore.LastRunTime
+    ) {
+        break
+    }
+} while ([DateTime]::UtcNow -lt $taskDeadline)
+
+if (
+    $restartTask.State -ne "Ready" -or
+    $taskInfoAfter.LastRunTime -le $taskInfoBefore.LastRunTime
+) {
+    Write-Host "FAIL: komorebi Scheduled Task did not finish" -ForegroundColor Red
     exit 1
+}
+if ($taskInfoAfter.LastTaskResult -ne 0) {
+    Write-Host `
+        "FAIL: restart.ps1 task failed with result $($taskInfoAfter.LastTaskResult)" `
+        -ForegroundColor Red
+    exit 1
+}
+Write-Host "PASS: restart.ps1 task completed successfully" -ForegroundColor Green
+
+$displayAdapterAfter = Get-PnpDevice `
+    -InstanceId $displayAdapter.InstanceId `
+    -ErrorAction SilentlyContinue
+$displayAdapterArrivalAfter = (
+    Get-PnpDeviceProperty `
+        -InstanceId $displayAdapter.InstanceId `
+        -KeyName "DEVPKEY_Device_LastArrivalDate" `
+        -ErrorAction Stop
+).Data
+if (
+    $null -eq $displayAdapterAfter -or
+    -not $displayAdapterAfter.Present -or
+    $displayAdapterAfter.Status -ne "OK"
+) {
+    Write-Host "FAIL: display adapter did not return healthy" -ForegroundColor Red
+    $allPassed = $false
+} elseif ($displayAdapterArrivalAfter -le $displayAdapterArrivalBefore) {
+    Write-Host "FAIL: display adapter was not restarted" -ForegroundColor Red
+    $allPassed = $false
+} else {
+    Write-Host "PASS: display adapter restarted and is healthy" -ForegroundColor Green
+}
+
+$activeScreenCountAfter = [System.Windows.Forms.Screen]::AllScreens.Count
+if ($activeScreenCountAfter -ne $activeScreenCountBefore) {
+    Write-Host `
+        "FAIL: active screens changed from $activeScreenCountBefore to $activeScreenCountAfter" `
+        -ForegroundColor Red
+    $allPassed = $false
+} else {
+    Write-Host "PASS: all active screens returned" -ForegroundColor Green
+}
+
+$nightLightDataAfter = Get-NightLightDataSnapshot
+if ($nightLightDataAfter -cne $nightLightDataBefore) {
+    Write-Host "FAIL: Night Light settings data changed" -ForegroundColor Red
+    $allPassed = $false
+} else {
+    Write-Host "PASS: Night Light settings data was preserved" -ForegroundColor Green
 }
 
 $expectedProcesses = @("komorebi", "whkd")
@@ -96,6 +229,14 @@ if (-not $whkdProcess -or $whkdProcess.MainWindowHandle -ne 0) {
 }
 
 $state = & $komorebicPath state | ConvertFrom-Json
+if ($state.monitors.elements.Count -ne $activeScreenCountBefore) {
+    Write-Host `
+        "FAIL: komorebi detected $($state.monitors.elements.Count) monitors, expected $activeScreenCountBefore" `
+        -ForegroundColor Red
+    $allPassed = $false
+} else {
+    Write-Host "PASS: komorebi detected every active screen" -ForegroundColor Green
+}
 foreach ($monitor in $state.monitors.elements) {
     $workspaces = @($monitor.workspaces.elements)
     if ($workspaces.Count -ne 1) {

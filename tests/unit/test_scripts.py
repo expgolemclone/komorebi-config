@@ -92,6 +92,18 @@ def test_restart_self_elevates_with_uac() -> None:
     assert 'throw "restart.ps1 must be run from an elevated PowerShell 7 session"' not in content
 
 
+def test_restart_prevents_concurrent_instances() -> None:
+    content = _content("restart.ps1")
+
+    assert "function Enter-RestartLock" in content
+    assert '"Local\\komorebi-config-restart"' in content
+    assert "$mutex.WaitOne(0)" in content
+    assert "[Threading.AbandonedMutexException]" in content
+    assert "Another restart.ps1 instance is already running" in content
+    assert "$restartLock.ReleaseMutex()" in content
+    assert "$restartLock.Dispose()" in content
+
+
 def test_readme_documents_restart_uac_elevation() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
@@ -151,6 +163,7 @@ def test_restart_selects_layout_from_monitor_orientation() -> None:
 def test_restart_bounds_every_komorebic_call() -> None:
     content = _content("restart.ps1")
 
+    assert "function Invoke-NativeCommand" in content
     assert "function Invoke-Komorebic" in content
     assert "[System.Diagnostics.ProcessStartInfo]::new()" in content
     assert "$process.WaitForExit($TimeoutMilliseconds)" in content
@@ -166,23 +179,48 @@ def test_restart_bounds_every_komorebic_call() -> None:
         assert f"-Operation {operation}" in content
 
 
+def test_restart_restarts_the_single_display_adapter_before_komorebi() -> None:
+    content = _content("restart.ps1")
+
+    assert "function Get-SingleHealthyDisplayAdapter" in content
+    assert '-Class "Display"' in content
+    assert "-PresentOnly" in content
+    assert '-Status "OK"' in content
+    assert "expected exactly one healthy display adapter" in content
+    assert "function Restart-DisplayAdapter" in content
+    assert 'Join-Path $env:SystemRoot "System32\\pnputil.exe"' in content
+    assert '@("/restart-device", [string]$DisplayAdapter.InstanceId)' in content
+    assert "function Wait-DisplayPipelineReady" in content
+    assert "[System.Windows.Forms.Screen]::AllScreens.Count" in content
+    assert "$RequiredStableSamples = 5" in content
+    assert "$TimeoutMilliseconds = 30000" in content
+    assert "expected $activeScreenCount" in content
+
+    stop_index = content.index("=== Stopping komorebi ===")
+    adapter_index = content.index("=== Restarting display adapter ===")
+    night_light_index = content.index("=== Restarting Windows Night Light ===")
+    start_index = content.index("=== Starting komorebi ===")
+    assert stop_index < adapter_index < night_light_index < start_index
+
+
 def test_restart_reports_progress_before_runtime_operations() -> None:
     content = _content("restart.ps1")
 
     for stage in (
         "=== Stopping komorebi ===",
+        "=== Restarting display adapter ===",
+        "=== Restarting Windows Night Light ===",
         "=== Starting komorebi ===",
         "=== Waiting for komorebi ===",
         "=== Starting helper processes ===",
         "=== Waiting for managed processes ===",
         "=== Applying workspace layouts ===",
-        "=== Restarting Windows Night Light ===",
         "=== Running processes ===",
     ):
         assert stage in content
 
 
-def test_restart_restarts_windows_night_light_service_after_layouts() -> None:
+def test_restart_restarts_windows_night_light_after_display_recovery() -> None:
     content = _content("restart.ps1")
 
     assert "function Restart-WindowsNightLight" in content
@@ -193,10 +231,25 @@ def test_restart_restarts_windows_night_light_service_after_layouts() -> None:
     assert "CloudStore" not in content
     assert "Stop-Process -Name explorer" not in content
 
-    layout_index = content.index("=== Applying workspace layouts ===")
+    display_index = content.index("=== Restarting display adapter ===")
     night_light_index = content.index("=== Restarting Windows Night Light ===")
-    running_processes_index = content.index("=== Running processes ===")
-    assert layout_index < night_light_index < running_processes_index
+    start_index = content.index("=== Starting komorebi ===")
+    assert display_index < night_light_index < start_index
+
+
+def test_restart_integration_tracks_display_and_preserves_night_light_data() -> None:
+    content = (
+        WINDOWS_INTEGRATION_TESTS / "test-restart.ps1"
+    ).read_text(encoding="utf-8")
+
+    assert "DEVPKEY_Device_LastArrivalDate" in content
+    assert 'Start-ScheduledTask `' in content
+    assert '-TaskName "komorebi"' in content
+    assert '$taskInfoAfter.LastTaskResult -ne 0' in content
+    assert "display adapter restarted and is healthy" in content
+    assert "[System.Windows.Forms.Screen]::AllScreens.Count" in content
+    assert "Night Light settings data was preserved" in content
+    assert "komorebi detected every active screen" in content
 
 
 def test_restart_uses_supported_hook_timeout() -> None:

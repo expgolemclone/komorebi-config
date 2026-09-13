@@ -68,10 +68,28 @@ function Invoke-ElevatedRestart {
     }
 }
 
-function Invoke-Komorebic {
+function Enter-RestartLock {
+    $mutex = [Threading.Mutex]::new(
+        $false,
+        "Local\komorebi-config-restart"
+    )
+
+    try {
+        if (-not $mutex.WaitOne(0)) {
+            $mutex.Dispose()
+            return $null
+        }
+    } catch [Threading.AbandonedMutexException] {
+        # The abandoned mutex is acquired by the current process.
+    }
+
+    return $mutex
+}
+
+function Invoke-NativeCommand {
     param(
         [Parameter(Mandatory)]
-        [string]$KomorebicPath,
+        [string]$FilePath,
 
         [Parameter(Mandatory)]
         [string[]]$ArgumentList,
@@ -79,11 +97,14 @@ function Invoke-Komorebic {
         [Parameter(Mandatory)]
         [string]$Operation,
 
+        [Parameter(Mandatory)]
+        [string]$CommandName,
+
         [int]$TimeoutMilliseconds = 10000
     )
 
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $KomorebicPath
+    $startInfo.FileName = $FilePath
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
     $startInfo.RedirectStandardOutput = $true
@@ -94,11 +115,11 @@ function Invoke-Komorebic {
 
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
-    Write-Host "komorebic: $Operation"
+    Write-Host "${CommandName}: $Operation"
 
     try {
         if (-not $process.Start()) {
-            throw "failed to start komorebic for $Operation"
+            throw "failed to start $CommandName for $Operation"
         }
 
         $stdoutTask = $process.StandardOutput.ReadToEndAsync()
@@ -110,7 +131,7 @@ function Invoke-Komorebic {
             [void]$stdoutTask.GetAwaiter().GetResult()
             [void]$stderrTask.GetAwaiter().GetResult()
             $seconds = [Math]::Round($TimeoutMilliseconds / 1000, 1)
-            throw "komorebic $Operation timed out after $seconds seconds"
+            throw "$CommandName $Operation timed out after $seconds seconds"
         }
 
         $stdout = $stdoutTask.GetAwaiter().GetResult()
@@ -125,13 +146,35 @@ function Invoke-Komorebic {
                 $details += "stderr: $($stderr.Trim())"
             }
             $suffix = if ($details.Count -eq 0) { "" } else { ": $($details -join ' | ')" }
-            throw "komorebic $Operation failed with exit code $($process.ExitCode)$suffix"
+            throw "$CommandName $Operation failed with exit code $($process.ExitCode)$suffix"
         }
 
         return $stdout.Trim()
     } finally {
         $process.Dispose()
     }
+}
+
+function Invoke-Komorebic {
+    param(
+        [Parameter(Mandatory)]
+        [string]$KomorebicPath,
+
+        [Parameter(Mandatory)]
+        [string[]]$ArgumentList,
+
+        [Parameter(Mandatory)]
+        [string]$Operation,
+
+        [int]$TimeoutMilliseconds = 10000
+    )
+
+    return Invoke-NativeCommand `
+        -FilePath $KomorebicPath `
+        -ArgumentList $ArgumentList `
+        -Operation $Operation `
+        -CommandName "komorebic" `
+        -TimeoutMilliseconds $TimeoutMilliseconds
 }
 
 function Start-ManagedProcess {
@@ -227,6 +270,107 @@ function Restart-WindowsNightLight {
     }
 }
 
+function Get-SingleHealthyDisplayAdapter {
+    $displayAdapters = @(
+        Get-PnpDevice `
+            -Class "Display" `
+            -PresentOnly `
+            -Status "OK" `
+            -ErrorAction Stop
+    )
+    if ($displayAdapters.Count -ne 1) {
+        throw "expected exactly one healthy display adapter, found $($displayAdapters.Count)"
+    }
+
+    return $displayAdapters[0]
+}
+
+function Get-ActiveScreenCount {
+    if (-not ("System.Windows.Forms.Screen" -as [type])) {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+    }
+
+    return [System.Windows.Forms.Screen]::AllScreens.Count
+}
+
+function Wait-DisplayPipelineReady {
+    param(
+        [Parameter(Mandatory)]
+        [string]$DisplayAdapterInstanceId,
+
+        [Parameter(Mandatory)]
+        [int]$ExpectedScreenCount,
+
+        [int]$TimeoutMilliseconds = 30000,
+
+        [int]$RequiredStableSamples = 5
+    )
+
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
+    $stableSamples = 0
+    $lastAdapterStatus = "not found"
+    $lastScreenCount = 0
+
+    do {
+        $displayAdapter = Get-PnpDevice `
+            -InstanceId $DisplayAdapterInstanceId `
+            -ErrorAction SilentlyContinue
+        if ($null -ne $displayAdapter) {
+            $lastAdapterStatus = [string]$displayAdapter.Status
+        } else {
+            $lastAdapterStatus = "not found"
+        }
+
+        $lastScreenCount = Get-ActiveScreenCount
+        if (
+            $null -ne $displayAdapter -and
+            $displayAdapter.Present -and
+            $displayAdapter.Status -eq "OK" -and
+            $lastScreenCount -eq $ExpectedScreenCount
+        ) {
+            $stableSamples++
+            if ($stableSamples -ge $RequiredStableSamples) {
+                return
+            }
+        } else {
+            $stableSamples = 0
+        }
+
+        Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $deadline)
+
+    $seconds = [Math]::Round($TimeoutMilliseconds / 1000, 1)
+    throw "display pipeline did not recover within $seconds seconds: adapter status $lastAdapterStatus, active screens $lastScreenCount/$ExpectedScreenCount"
+}
+
+function Restart-DisplayAdapter {
+    param(
+        [Parameter(Mandatory)]
+        [Microsoft.Management.Infrastructure.CimInstance]$DisplayAdapter,
+
+        [Parameter(Mandatory)]
+        [int]$ExpectedScreenCount,
+
+        [int]$TimeoutMilliseconds = 60000
+    )
+
+    $pnputilPath = Join-Path $env:SystemRoot "System32\pnputil.exe"
+    if (-not (Test-Path -LiteralPath $pnputilPath -PathType Leaf)) {
+        throw "PnPUtil was not found: $pnputilPath"
+    }
+
+    [void](Invoke-NativeCommand `
+        -FilePath $pnputilPath `
+        -ArgumentList @("/restart-device", [string]$DisplayAdapter.InstanceId) `
+        -Operation "restart display adapter $($DisplayAdapter.FriendlyName)" `
+        -CommandName "pnputil" `
+        -TimeoutMilliseconds $TimeoutMilliseconds)
+
+    Wait-DisplayPipelineReady `
+        -DisplayAdapterInstanceId $DisplayAdapter.InstanceId `
+        -ExpectedScreenCount $ExpectedScreenCount
+}
+
 if (-not (Test-IsAdministrator)) {
     $elevatedArguments = [System.Collections.Generic.List[string]]::new()
     foreach ($argument in @(
@@ -255,6 +399,13 @@ if (-not (Test-IsAdministrator)) {
     return
 }
 
+$restartLock = Enter-RestartLock
+if ($null -eq $restartLock) {
+    Write-Host "Another restart.ps1 instance is already running"
+    return
+}
+
+try {
 $configRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $configPath = Join-Path $configRoot "komorebi.json"
 $whkdConfigPath = Join-Path $configRoot "whkdrc"
@@ -277,6 +428,11 @@ if (-not (Test-Path -LiteralPath $AutoHotkeyPath -PathType Leaf)) {
 $komorebiPath = (Get-Command komorebi -ErrorAction Stop).Source
 $komorebicPath = (Get-Command komorebic -ErrorAction Stop).Source
 $whkdPath = (Get-Command whkd -ErrorAction Stop).Source
+$displayAdapter = Get-SingleHealthyDisplayAdapter
+$activeScreenCount = Get-ActiveScreenCount
+if ($activeScreenCount -le 0) {
+    throw "Windows did not report any active screens"
+}
 
 [System.Environment]::SetEnvironmentVariable("KOMOREBI_CONFIG_HOME", $configRoot, "User")
 [System.Environment]::SetEnvironmentVariable("WHKD_CONFIG_HOME", $configRoot, "User")
@@ -319,6 +475,14 @@ if ($runningProcesses.Count -ne 0) {
     }
 }
 
+Write-Host "=== Restarting display adapter ==="
+Restart-DisplayAdapter `
+    -DisplayAdapter $displayAdapter `
+    -ExpectedScreenCount $activeScreenCount
+
+Write-Host "=== Restarting Windows Night Light ==="
+Restart-WindowsNightLight
+
 Write-Host "=== Starting komorebi ==="
 Start-ManagedProcess `
     -FilePath $komorebiPath `
@@ -355,6 +519,9 @@ $monitors = @($monitorJson | ConvertFrom-Json)
 if ($monitors.Count -eq 0) {
     throw "komorebi did not detect any monitors"
 }
+if ($monitors.Count -ne $activeScreenCount) {
+    throw "komorebi detected $($monitors.Count) monitors after display restart, expected $activeScreenCount"
+}
 
 for ($monitorIndex = 0; $monitorIndex -lt $monitors.Count; $monitorIndex++) {
     $monitor = $monitors[$monitorIndex]
@@ -379,10 +546,11 @@ for ($monitorIndex = 0; $monitorIndex -lt $monitors.Count; $monitorIndex++) {
         -TimeoutMilliseconds 10000)
 }
 
-Write-Host "=== Restarting Windows Night Light ==="
-Restart-WindowsNightLight
-
 Write-Host "=== Running processes ==="
 Get-Process -Name $managedProcessNames | Format-Table Name, Id -AutoSize
 Write-Host "Config home: $configRoot"
 Write-Host "Detected monitors: $($monitors.Count)"
+} finally {
+    $restartLock.ReleaseMutex()
+    $restartLock.Dispose()
+}

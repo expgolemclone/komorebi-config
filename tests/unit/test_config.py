@@ -111,8 +111,7 @@ def test_whkd_replaces_static_configuration() -> None:
 
     assert "reload-configuration" not in whkdrc
     assert (
-        'komorebic replace-configuration '
-        '"%KOMOREBI_CONFIG_HOME%\\komorebi.json"'
+        'komorebic replace-configuration "%KOMOREBI_CONFIG_HOME%\\komorebi.json"'
     ) in whkdrc
 
 

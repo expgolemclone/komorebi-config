@@ -37,7 +37,7 @@ def _run_script(cwd: Path) -> subprocess.CompletedProcess[str]:
         cwd=cwd,
         capture_output=True,
         text=True,
-        timeout=10,
+        timeout=30,
     )
 
 

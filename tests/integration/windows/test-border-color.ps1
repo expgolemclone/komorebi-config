@@ -56,28 +56,28 @@ try {
 
     $samples = @(
         @{
-            Axis = "Y"
+            Axis  = "Y"
             Fixed = $middleX
             Start = [Math]::Max(0, $windowTop - $searchRadius)
-            End = [Math]::Min($height - 1, $windowTop + $searchRadius)
+            End   = [Math]::Min($height - 1, $windowTop + $searchRadius)
         },
         @{
-            Axis = "X"
+            Axis  = "X"
             Fixed = $middleY
             Start = [Math]::Max(0, $windowLeft - $searchRadius)
-            End = [Math]::Min($width - 1, $windowLeft + $searchRadius)
+            End   = [Math]::Min($width - 1, $windowLeft + $searchRadius)
         },
         @{
-            Axis = "X"
+            Axis  = "X"
             Fixed = $middleY
             Start = [Math]::Max(0, $windowRight - $searchRadius)
-            End = [Math]::Min($width - 1, $windowRight + $searchRadius)
+            End   = [Math]::Min($width - 1, $windowRight + $searchRadius)
         },
         @{
-            Axis = "Y"
+            Axis  = "Y"
             Fixed = $middleX
             Start = [Math]::Max(0, $windowBottom - $searchRadius)
-            End = [Math]::Min($height - 1, $windowBottom + $searchRadius)
+            End   = [Math]::Min($height - 1, $windowBottom + $searchRadius)
         }
     )
 
@@ -85,7 +85,8 @@ try {
         for ($position = $sample.Start; $position -le $sample.End; $position++) {
             if ($sample.Axis -eq "X") {
                 $pixel = $bitmap.GetPixel($position, $sample.Fixed)
-            } else {
+            }
+            else {
                 $pixel = $bitmap.GetPixel($sample.Fixed, $position)
             }
             if ($pixel.R -eq $expected.R -and
@@ -96,7 +97,8 @@ try {
             }
         }
     }
-} finally {
+}
+finally {
     $graphics.Dispose()
     $bitmap.Dispose()
     if ($previousDpiContext -ne [IntPtr]::Zero) {

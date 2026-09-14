@@ -166,10 +166,12 @@ if (
 ) {
     Write-Host "FAIL: display adapter did not return healthy" -ForegroundColor Red
     $allPassed = $false
-} elseif ($displayAdapterArrivalAfter -le $displayAdapterArrivalBefore) {
+}
+elseif ($displayAdapterArrivalAfter -le $displayAdapterArrivalBefore) {
     Write-Host "FAIL: display adapter was not restarted" -ForegroundColor Red
     $allPassed = $false
-} else {
+}
+else {
     Write-Host "PASS: display adapter restarted and is healthy" -ForegroundColor Green
 }
 
@@ -179,7 +181,8 @@ if ($activeScreenCountAfter -ne $activeScreenCountBefore) {
         "FAIL: active screens changed from $activeScreenCountBefore to $activeScreenCountAfter" `
         -ForegroundColor Red
     $allPassed = $false
-} else {
+}
+else {
     Write-Host "PASS: all active screens returned" -ForegroundColor Green
 }
 if ([RestartTestPhysicalScreenCoordinates]::SetThreadDpiAwarenessContext([IntPtr](-4)) -eq [IntPtr]::Zero) {
@@ -195,7 +198,8 @@ $nightLightDataAfter = Get-NightLightDataSnapshot
 if ($nightLightDataAfter -cne $nightLightDataBefore) {
     Write-Host "FAIL: Night Light settings data changed" -ForegroundColor Red
     $allPassed = $false
-} else {
+}
+else {
     Write-Host "PASS: Night Light settings data was preserved" -ForegroundColor Green
 }
 
@@ -204,7 +208,8 @@ foreach ($name in $expectedProcesses) {
     $processes = @(Get-Process -Name $name -ErrorAction SilentlyContinue)
     if ($processes.Count -eq 1) {
         Write-Host "PASS: exactly one $name process is running" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "FAIL: expected one $name process, found $($processes.Count)" -ForegroundColor Red
         $allPassed = $false
     }
@@ -213,7 +218,8 @@ foreach ($name in $expectedProcesses) {
 $barProcesses = @(Get-Process -Name "komorebi-bar" -ErrorAction SilentlyContinue)
 if ($barProcesses.Count -eq 0) {
     Write-Host "PASS: komorebi-bar is not running" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "FAIL: komorebi-bar is running" -ForegroundColor Red
     $allPassed = $false
 }
@@ -227,7 +233,8 @@ if ($nightLightServiceAfter.State -ne "Running" -or $nightLightProcessIdAfter -e
         "FAIL: DisplayEnhancementService is not running after restart.ps1" `
         -ForegroundColor Red
     $allPassed = $false
-} elseif (
+}
+elseif (
     $nightLightProcessIdBefore -ne 0 -and
     $nightLightProcessIdAfter -eq $nightLightProcessIdBefore
 ) {
@@ -235,7 +242,8 @@ if ($nightLightServiceAfter.State -ne "Running" -or $nightLightProcessIdAfter -e
         "FAIL: DisplayEnhancementService process ID did not change" `
         -ForegroundColor Red
     $allPassed = $false
-} else {
+}
+else {
     Write-Host `
         "PASS: DisplayEnhancementService restarted and is running" `
         -ForegroundColor Green
@@ -245,7 +253,8 @@ $whkdProcess = Get-Process -Name whkd -ErrorAction SilentlyContinue
 if (-not $whkdProcess -or $whkdProcess.MainWindowHandle -ne 0) {
     Write-Host "FAIL: whkd does not run without a visible window" -ForegroundColor Red
     $allPassed = $false
-} else {
+}
+else {
     Write-Host "PASS: whkd has no visible window" -ForegroundColor Green
 }
 
@@ -255,7 +264,8 @@ if ($state.monitors.elements.Count -ne $activeScreenCountBefore) {
         "FAIL: komorebi detected $($state.monitors.elements.Count) monitors, expected $activeScreenCountBefore" `
         -ForegroundColor Red
     $allPassed = $false
-} else {
+}
+else {
     Write-Host "PASS: komorebi detected every active screen" -ForegroundColor Green
 }
 $komorebiScreenSizes = @(
@@ -281,14 +291,16 @@ foreach ($monitor in $state.monitors.elements) {
     $height = [int]$monitor.size.bottom
     if ($width -gt $height) {
         $expectedLayout = "Columns"
-    } else {
+    }
+    else {
         $expectedLayout = "Rows"
     }
 
     if ($workspaces[0].layout.Default -ne $expectedLayout) {
         Write-Host "FAIL: workspace layout is $($workspaces[0].layout.Default), expected $expectedLayout for ${width}x${height}" -ForegroundColor Red
         $allPassed = $false
-    } else {
+    }
+    else {
         Write-Host "PASS: ${width}x${height} monitor uses $expectedLayout" -ForegroundColor Green
     }
 }

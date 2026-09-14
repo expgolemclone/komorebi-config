@@ -83,7 +83,8 @@ try {
     if ($position.X -ne $expectedX -or $position.Y -ne $expectedY) {
         throw "unexpected cursor position: $($position.X),$($position.Y)"
     }
-} finally {
+}
+finally {
     [void][CursorTestNative]::SetThreadDpiAwarenessContext($previousDpiContext)
 }
 

@@ -68,6 +68,19 @@ $displayAdapterArrivalBefore = (
         -KeyName "DEVPKEY_Device_LastArrivalDate" `
         -ErrorAction Stop
 ).Data
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class RestartTestPhysicalScreenCoordinates
+{
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+}
+'@
+if ([RestartTestPhysicalScreenCoordinates]::SetThreadDpiAwarenessContext([IntPtr](-4)) -eq [IntPtr]::Zero) {
+    throw "failed to enable per-monitor DPI awareness"
+}
 Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
 $activeScreenCountBefore = [System.Windows.Forms.Screen]::AllScreens.Count
 $nightLightDataBefore = Get-NightLightDataSnapshot
@@ -169,6 +182,14 @@ if ($activeScreenCountAfter -ne $activeScreenCountBefore) {
 } else {
     Write-Host "PASS: all active screens returned" -ForegroundColor Green
 }
+if ([RestartTestPhysicalScreenCoordinates]::SetThreadDpiAwarenessContext([IntPtr](-4)) -eq [IntPtr]::Zero) {
+    throw "failed to enable per-monitor DPI awareness"
+}
+$windowsScreenSizes = @(
+    [System.Windows.Forms.Screen]::AllScreens |
+        ForEach-Object { "$($_.Bounds.Width)x$($_.Bounds.Height)" } |
+        Sort-Object
+)
 
 $nightLightDataAfter = Get-NightLightDataSnapshot
 if ($nightLightDataAfter -cne $nightLightDataBefore) {
@@ -236,6 +257,17 @@ if ($state.monitors.elements.Count -ne $activeScreenCountBefore) {
     $allPassed = $false
 } else {
     Write-Host "PASS: komorebi detected every active screen" -ForegroundColor Green
+}
+$komorebiScreenSizes = @(
+    $state.monitors.elements |
+        ForEach-Object { "$($_.size.right)x$($_.size.bottom)" } |
+        Sort-Object
+)
+if (($komorebiScreenSizes -join ";") -ne ($windowsScreenSizes -join ";")) {
+    Write-Host "FAIL: komorebi monitor sizes $($komorebiScreenSizes -join ', ') differ from Windows $($windowsScreenSizes -join ', ')" -ForegroundColor Red
+    $allPassed = $false
+} else {
+    Write-Host "PASS: komorebi monitor sizes match Windows" -ForegroundColor Green
 }
 foreach ($monitor in $state.monitors.elements) {
     $workspaces = @($monitor.workspaces.elements)

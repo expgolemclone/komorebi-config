@@ -31,7 +31,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 1. `KOMOREBI_CONFIG_HOME`と`WHKD_CONFIG_HOME`を設定します.
 2. `LowLevelHooksTimeout`をWindowsの上限である1000 msへ設定します.
 3. komorebi, komorebi-bar, whkdの既存processを終了します.
-4. activeなdisplay adapterを`pnputil`で再起動し, adapterと元のmonitor数が安定して復帰するまで待機します. 実行中は画面が数秒暗転します.
+4. activeなdisplay adapterを`pnputil`で再起動し, adapterと元のmonitor数, 物理pixelでの画面位置とサイズが安定して復帰するまで待機します. 実行中は画面が数秒暗転します.
 5. Windowsの`DisplayEnhancementService`を再起動し, 復帰した全monitorへ夜間モードの表示効果を再適用します.
 6. Static configを指定してkomorebiを起動し, IPC serverの応答後にwhkdを起動します. komorebi-barは起動しません.
 7. 自動検出した各monitorのworkspace 0へ, 横長なら`Columns`, 縦長なら`Rows`を適用します.
@@ -60,7 +60,7 @@ process間lockにより同時実行を防ぎ, display再起動でmonitor watcher
 通常のtestはhardwareやrunning processに依存しません.
 
 ```powershell
-uv run --extra test pytest -q
+uv run --extra test python -m pytest -q
 uv run python .\scripts\validate_encoding.py
 ```
 
@@ -68,7 +68,7 @@ uv run python .\scripts\validate_encoding.py
 
 ```powershell
 pwsh -NoProfile -File .\tests\integration\windows\test-restart.ps1
-uv run --extra test pytest -q tests\integration\test_komorebi_runtime.py
+uv run --extra test python -m pytest -q tests\integration\test_komorebi_runtime.py
 pwsh -NoProfile -File .\tests\integration\windows\test-config-schema.ps1
 pwsh -NoProfile -File .\tests\integration\windows\test-cursor-helper.ps1
 pwsh -NoProfile -File .\tests\integration\windows\test-border-color.ps1

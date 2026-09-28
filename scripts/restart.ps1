@@ -283,12 +283,45 @@ function Get-SingleHealthyDisplayAdapter {
     return $displayAdapters[0]
 }
 
-function Get-ActiveScreenCount {
+function Get-ActiveScreens {
+    if (-not ("KomorebiPhysicalScreenCoordinates" -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class KomorebiPhysicalScreenCoordinates
+{
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+}
+'@ -ErrorAction Stop
+    }
+    $previousDpiContext = [KomorebiPhysicalScreenCoordinates]::SetThreadDpiAwarenessContext([IntPtr](-4))
+    if ($previousDpiContext -eq [IntPtr]::Zero) {
+        $errorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        throw "failed to enable per-monitor DPI awareness: Win32 error $errorCode"
+    }
     if (-not ("System.Windows.Forms.Screen" -as [type])) {
         Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
     }
 
-    return [System.Windows.Forms.Screen]::AllScreens.Count
+    return [System.Windows.Forms.Screen]::AllScreens
+}
+
+function Get-ActiveScreenCount {
+    return @(Get-ActiveScreens).Count
+}
+
+function Get-ActiveScreenGeometry {
+    $screens = @(
+        Get-ActiveScreens |
+            ForEach-Object {
+                $bounds = $_.Bounds
+                "$($bounds.X),$($bounds.Y):$($bounds.Width)x$($bounds.Height)"
+            } |
+            Sort-Object
+    )
+    return $screens -join ";"
 }
 
 function Wait-DisplayPipelineReady {
@@ -299,6 +332,9 @@ function Wait-DisplayPipelineReady {
         [Parameter(Mandatory)]
         [int]$ExpectedScreenCount,
 
+        [Parameter(Mandatory)]
+        [string]$ExpectedScreenGeometry,
+
         [int]$TimeoutMilliseconds = 30000,
 
         [int]$RequiredStableSamples = 5
@@ -308,6 +344,7 @@ function Wait-DisplayPipelineReady {
     $stableSamples = 0
     $lastAdapterStatus = "not found"
     $lastScreenCount = 0
+    $lastScreenGeometry = ""
 
     do {
         $displayAdapter = Get-PnpDevice `
@@ -320,11 +357,13 @@ function Wait-DisplayPipelineReady {
         }
 
         $lastScreenCount = Get-ActiveScreenCount
+        $lastScreenGeometry = Get-ActiveScreenGeometry
         if (
             $null -ne $displayAdapter -and
             $displayAdapter.Present -and
             $displayAdapter.Status -eq "OK" -and
-            $lastScreenCount -eq $ExpectedScreenCount
+            $lastScreenCount -eq $ExpectedScreenCount -and
+            $lastScreenGeometry -eq $ExpectedScreenGeometry
         ) {
             $stableSamples++
             if ($stableSamples -ge $RequiredStableSamples) {
@@ -338,7 +377,7 @@ function Wait-DisplayPipelineReady {
     } while ([DateTime]::UtcNow -lt $deadline)
 
     $seconds = [Math]::Round($TimeoutMilliseconds / 1000, 1)
-    throw "display pipeline did not recover within $seconds seconds: adapter status $lastAdapterStatus, active screens $lastScreenCount/$ExpectedScreenCount"
+    throw "display pipeline did not recover within $seconds seconds: adapter status $lastAdapterStatus, active screens $lastScreenCount/$ExpectedScreenCount, geometry $lastScreenGeometry/$ExpectedScreenGeometry"
 }
 
 function Restart-DisplayAdapter {
@@ -348,6 +387,9 @@ function Restart-DisplayAdapter {
 
         [Parameter(Mandatory)]
         [int]$ExpectedScreenCount,
+
+        [Parameter(Mandatory)]
+        [string]$ExpectedScreenGeometry,
 
         [int]$TimeoutMilliseconds = 60000
     )
@@ -366,7 +408,8 @@ function Restart-DisplayAdapter {
 
     Wait-DisplayPipelineReady `
         -DisplayAdapterInstanceId $DisplayAdapter.InstanceId `
-        -ExpectedScreenCount $ExpectedScreenCount
+        -ExpectedScreenCount $ExpectedScreenCount `
+        -ExpectedScreenGeometry $ExpectedScreenGeometry
 }
 
 if (-not (Test-IsAdministrator)) {
@@ -431,6 +474,7 @@ $activeScreenCount = Get-ActiveScreenCount
 if ($activeScreenCount -le 0) {
     throw "Windows did not report any active screens"
 }
+$activeScreenGeometry = Get-ActiveScreenGeometry
 
 [System.Environment]::SetEnvironmentVariable("KOMOREBI_CONFIG_HOME", $configRoot, "User")
 [System.Environment]::SetEnvironmentVariable("WHKD_CONFIG_HOME", $configRoot, "User")
@@ -476,7 +520,8 @@ if ($runningProcesses.Count -ne 0) {
 Write-Host "=== Restarting display adapter ==="
 Restart-DisplayAdapter `
     -DisplayAdapter $displayAdapter `
-    -ExpectedScreenCount $activeScreenCount
+    -ExpectedScreenCount $activeScreenCount `
+    -ExpectedScreenGeometry $activeScreenGeometry
 
 Write-Host "=== Restarting Windows Night Light ==="
 Restart-WindowsNightLight
@@ -519,6 +564,19 @@ if ($monitors.Count -eq 0) {
 }
 if ($monitors.Count -ne $activeScreenCount) {
     throw "komorebi detected $($monitors.Count) monitors after display restart, expected $activeScreenCount"
+}
+$windowsScreenSizes = @(
+    Get-ActiveScreens |
+        ForEach-Object { "$($_.Bounds.Width)x$($_.Bounds.Height)" } |
+        Sort-Object
+)
+$komorebiScreenSizes = @(
+    $monitors |
+        ForEach-Object { "$($_.size.right)x$($_.size.bottom)" } |
+        Sort-Object
+)
+if (($windowsScreenSizes -join ";") -ne ($komorebiScreenSizes -join ";")) {
+    throw "komorebi monitor sizes $($komorebiScreenSizes -join ', ') do not match Windows screens $($windowsScreenSizes -join ', ')"
 }
 
 for ($monitorIndex = 0; $monitorIndex -lt $monitors.Count; $monitorIndex++) {

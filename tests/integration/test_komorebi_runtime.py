@@ -28,6 +28,41 @@ def test_komorebi_detects_at_least_one_monitor() -> None:
     assert len(monitors) >= 1
 
 
+def test_komorebi_monitor_sizes_match_windows() -> None:
+    windows_result = subprocess.run(
+        [
+            "pwsh",
+            "-NoProfile",
+            "-Command",
+            "Add-Type -TypeDefinition 'using System; "
+            "using System.Runtime.InteropServices; "
+            "public static class PhysicalScreenDpi { "
+            '[DllImport("user32.dll", SetLastError = true)] '
+            "public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context); "
+            "}'; "
+            "if ([PhysicalScreenDpi]::SetThreadDpiAwarenessContext([IntPtr](-4)) "
+            "-eq [IntPtr]::Zero) { throw 'failed to enable physical screen coordinates' }; "
+            "Add-Type -AssemblyName System.Windows.Forms; "
+            "[System.Windows.Forms.Screen]::AllScreens | "
+            'ForEach-Object { "$($_.Bounds.Width)x$($_.Bounds.Height)" }',
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=10,
+    )
+    assert windows_result.returncode == 0, windows_result.stderr
+    windows_sizes = sorted(windows_result.stdout.splitlines())
+
+    monitors = _komorebic(["monitor-information"])
+    assert isinstance(monitors, list)
+    komorebi_sizes = sorted(
+        f'{monitor["size"]["right"]}x{monitor["size"]["bottom"]}'
+        for monitor in monitors
+    )
+    assert komorebi_sizes == windows_sizes
+
+
 def test_each_monitor_has_one_orientation_based_workspace() -> None:
     state = _komorebic(["state"])
 

@@ -189,7 +189,13 @@ def test_restart_restarts_the_single_display_adapter_before_komorebi() -> None:
     assert 'Join-Path $env:SystemRoot "System32\\pnputil.exe"' in content
     assert '@("/restart-device", [string]$DisplayAdapter.InstanceId)' in content
     assert "function Wait-DisplayPipelineReady" in content
-    assert "[System.Windows.Forms.Screen]::AllScreens.Count" in content
+    assert "function Get-ActiveScreens" in content
+    assert "SetThreadDpiAwarenessContext([IntPtr](-4))" in content
+    assert "return [System.Windows.Forms.Screen]::AllScreens" in content
+    assert "function Get-ActiveScreenGeometry" in content
+    assert "$lastScreenGeometry -eq $ExpectedScreenGeometry" in content
+    assert "-ExpectedScreenGeometry $activeScreenGeometry" in content
+    assert "komorebi monitor sizes" in content
     assert "$RequiredStableSamples = 5" in content
     assert "$TimeoutMilliseconds = 30000" in content
     assert "expected $activeScreenCount" in content
@@ -248,6 +254,7 @@ def test_restart_integration_tracks_display_and_preserves_night_light_data() -> 
     assert "[System.Windows.Forms.Screen]::AllScreens.Count" in content
     assert "Night Light settings data was preserved" in content
     assert "komorebi detected every active screen" in content
+    assert "komorebi monitor sizes match Windows" in content
 
 
 def test_restart_uses_supported_hook_timeout() -> None:
@@ -278,7 +285,7 @@ def test_cursor_helper_uses_autohotkey_v2_and_checks_win32_result() -> None:
 def test_readme_uses_reproducible_test_commands_in_runtime_order() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert "uv run --extra test pytest -q" in readme
+    assert "uv run --extra test python -m pytest -q" in readme
     restart_index = readme.index("tests\\integration\\windows\\test-restart.ps1")
     runtime_index = readme.index("tests\\integration\\test_komorebi_runtime.py")
     assert restart_index < runtime_index

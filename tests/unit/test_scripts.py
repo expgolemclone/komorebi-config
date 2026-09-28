@@ -118,11 +118,9 @@ def test_restart_uses_direct_process_lifecycle() -> None:
     assert "Stop-Process -Id $runningProcesses.Id -Force" in content
     assert "function Start-ManagedProcess" in content
     assert "function Wait-KomorebiReady" in content
-    assert "$startInfo.UseShellExecute = $true" in content
-    assert (
-        "$startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden"
-        in content
-    )
+    assert "Start-Process `" in content
+    assert "-WindowStyle Hidden `" in content
+    assert "-PassThru `" in content
     assert (
         'ArgumentList @("--config", $configPath, "--clean-state")'
         in content

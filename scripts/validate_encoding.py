@@ -1,4 +1,4 @@
-"""jjで管理されているtext fileのUTF-8 encodingとLF改行を検証する。"""
+"""jjまたはGitで管理されているtext fileのUTF-8 encodingとLF改行を検証する。"""
 
 from __future__ import annotations
 
@@ -31,12 +31,39 @@ def _run_jj(args: list[str], cwd: Path | None = None) -> str:
     return result.stdout
 
 
-def _repository_root() -> Path:
-    return Path(_run_jj(["root"]).strip())
+def _run_git(args: list[str], cwd: Path | None = None) -> str:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except FileNotFoundError as error:
+        raise RuntimeError("git command is not installed or not on PATH") from error
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(f"git {' '.join(args)} failed: {detail}")
+    return result.stdout
 
 
-def _tracked_files(root: Path) -> list[Path]:
-    output = _run_jj(["file", "list", "-r", "@"], cwd=root)
+def _repository() -> tuple[Path, str]:
+    try:
+        return Path(_run_jj(["root"]).strip()), "jj"
+    except RuntimeError as jj_error:
+        try:
+            root = Path(_run_git(["rev-parse", "--show-toplevel"]).strip())
+            return root, "git"
+        except RuntimeError as git_error:
+            raise RuntimeError(f"{jj_error}; {git_error}") from git_error
+
+
+def _tracked_files(root: Path, repository_type: str) -> list[Path]:
+    if repository_type == "jj":
+        output = _run_jj(["file", "list", "-r", "@"], cwd=root)
+    else:
+        output = _run_git(["ls-files"], cwd=root)
     return [root / name for name in output.splitlines() if name]
 
 
@@ -61,8 +88,8 @@ def _check_line_endings(path: Path, root: Path) -> str | None:
 
 def main() -> int:
     try:
-        root = _repository_root()
-        files = _tracked_files(root)
+        root, repository_type = _repository()
+        files = _tracked_files(root, repository_type)
     except RuntimeError as error:
         print(f"REPOSITORY: {error}")
         return 1

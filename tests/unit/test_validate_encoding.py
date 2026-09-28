@@ -1,4 +1,4 @@
-"""jj repositoryに対するencoding検査を確認する。"""
+"""jjまたはGit repositoryに対するencoding検査を確認する。"""
 
 from __future__ import annotations
 
@@ -85,6 +85,18 @@ def test_japanese_utf8_passes(jj_repo: Path) -> None:
 def test_binary_file_is_ignored(jj_repo: Path) -> None:
     repo = jj_repo
     (repo / "binary.bin").write_bytes(b"\x00\xff\r\n")
+
+    result = _run_script(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_git_repository_is_supported(tmp_path: Path) -> None:
+    repo = tmp_path / "git-repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    (repo / "good.txt").write_text("Git repository\n", encoding="utf-8", newline="\n")
+    subprocess.run(["git", "add", "good.txt"], cwd=repo, check=True)
 
     result = _run_script(repo)
 

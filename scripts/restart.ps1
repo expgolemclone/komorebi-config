@@ -189,24 +189,22 @@ function Start-ManagedProcess {
         [string]$ProcessName
     )
 
-    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $FilePath
-    $startInfo.UseShellExecute = $true
-    $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-    foreach ($argument in $ArgumentList) {
-        [void]$startInfo.ArgumentList.Add($argument)
-    }
-
-    $process = [System.Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
     Write-Host "Starting $ProcessName"
-
+    $process = $null
     try {
-        if (-not $process.Start()) {
+        $process = Start-Process `
+            -FilePath $FilePath `
+            -ArgumentList $ArgumentList `
+            -WindowStyle Hidden `
+            -PassThru `
+            -ErrorAction Stop
+        if ($null -eq $process) {
             throw "failed to start $ProcessName"
         }
     } finally {
-        $process.Dispose()
+        if ($null -ne $process) {
+            $process.Dispose()
+        }
     }
 }
 

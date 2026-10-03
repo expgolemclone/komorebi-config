@@ -285,7 +285,8 @@ def test_cursor_helper_uses_autohotkey_v2_and_checks_win32_result() -> None:
 def test_readme_uses_reproducible_test_commands_in_runtime_order() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert "uv run --extra test python -m pytest -q" in readme
+    assert "python -m pytest -q" in readme
+    assert "uv run" not in readme
     restart_index = readme.index("tests\\integration\\windows\\test-restart.ps1")
     runtime_index = readme.index("tests\\integration\\test_komorebi_runtime.py")
     assert restart_index < runtime_index

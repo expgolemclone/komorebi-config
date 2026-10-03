@@ -12,7 +12,7 @@ Excel, PowerPoint, Wordはそれぞれ`EXCEL.EXE`, `POWERPNT.EXE`, `WINWORD.EXE`
 - [komorebi][komorebi] v0.1.41
 - [whkd][whkd]
 - AutoHotkey v2.0.26
-- jjとuv, unit testを実行する場合のみ
+- jjとenvxの共通Python環境, unit testを実行する場合のみ
 
 ## Setup
 
@@ -60,15 +60,15 @@ process間lockにより同時実行を防ぎ, display再起動でmonitor watcher
 通常のtestはhardwareやrunning processに依存しません.
 
 ```powershell
-uv run --extra test python -m pytest -q
-uv run python .\scripts\validate_encoding.py
+python -m pytest -q
+python .\scripts\validate_encoding.py
 ```
 
 実機のkomorebi状態を検証する場合は, restart後にintegration testを明示実行します.
 
 ```powershell
 pwsh -NoProfile -File .\tests\integration\windows\test-restart.ps1
-uv run --extra test python -m pytest -q tests\integration\test_komorebi_runtime.py
+python -m pytest -q tests\integration\test_komorebi_runtime.py
 pwsh -NoProfile -File .\tests\integration\windows\test-config-schema.ps1
 pwsh -NoProfile -File .\tests\integration\windows\test-cursor-helper.ps1
 pwsh -NoProfile -File .\tests\integration\windows\test-border-color.ps1

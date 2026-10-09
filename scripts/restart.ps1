@@ -447,7 +447,8 @@ if ($null -eq $restartLock) {
 }
 
 try {
-$configRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+Import-Module (Join-Path $HOME 'local-repository-map/RepositoryMap.psm1')
+$configRoot = Get-LocalRepositoryPath 'expgolemclone/komorebi-config'
 $configPath = Join-Path $configRoot "komorebi.json"
 $whkdConfigPath = Join-Path $configRoot "whkdrc"
 foreach ($requiredFile in @($configPath, $whkdConfigPath)) {
@@ -476,9 +477,6 @@ if ($activeScreenCount -le 0) {
 }
 $activeScreenGeometry = Get-ActiveScreenGeometry
 
-[System.Environment]::SetEnvironmentVariable("KOMOREBI_CONFIG_HOME", $configRoot, "User")
-[System.Environment]::SetEnvironmentVariable("WHKD_CONFIG_HOME", $configRoot, "User")
-[System.Environment]::SetEnvironmentVariable("KOMOREBI_AUTOHOTKEY", $AutoHotkeyPath, "User")
 $Env:KOMOREBI_CONFIG_HOME = $configRoot
 $Env:WHKD_CONFIG_HOME = $configRoot
 $Env:KOMOREBI_AUTOHOTKEY = $AutoHotkeyPath

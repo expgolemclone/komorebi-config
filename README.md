@@ -26,9 +26,9 @@ Scheduled Task `\komorebi` の定義と登録は, [task-scheduler-managementの`
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 ```
 
-`restart.ps1`はrepository rootをconfig rootとして解決し, 次の処理を行います.
+`restart.ps1`は`Get-LocalRepositoryPath 'expgolemclone/komorebi-config'`で登録先をconfig rootとして取得し, 次の処理を行います. task cloneのpathを永続設定へ保存しません. config変数とAutoHotkey実体pathはこのprocessと子processだけに設定し, 旧user変数の廃止はenvxのcurrent-PC desired stateで管理します.
 
-1. `KOMOREBI_CONFIG_HOME`と`WHKD_CONFIG_HOME`を設定します.
+1. `KOMOREBI_CONFIG_HOME`と`WHKD_CONFIG_HOME`をprocess scopeへ設定します.
 2. `LowLevelHooksTimeout`をWindowsの上限である1000 msへ設定します.
 3. komorebi, komorebi-bar, whkdの既存processを終了します.
 4. activeなdisplay adapterを`pnputil`で再起動し, adapterと元のmonitor数, 物理pixelでの画面位置とサイズが安定して復帰するまで待機します. 実行中は画面が数秒暗転します.
@@ -60,8 +60,8 @@ process間lockにより同時実行を防ぎ, display再起動でmonitor watcher
 通常のtestはhardwareやrunning processに依存しません.
 
 ```powershell
-python -m pytest -q
-python .\scripts\validate_encoding.py
+envx-python -m pytest -q
+envx-python .\scripts\validate_encoding.py
 ```
 
 実機のkomorebi状態を検証する場合は, restart後にintegration testを明示実行します.

@@ -55,11 +55,12 @@ def test_scripts_do_not_contain_hardcoded_user_paths() -> None:
         assert matches == [], f"{path.name}: {matches}"
 
 
-def test_restart_resolves_repository_root_from_script_path() -> None:
+def test_restart_resolves_canonical_root_from_repository_map() -> None:
     content = _content("restart.ps1")
 
-    assert "$PSScriptRoot" in content
-    assert 'Join-Path $PSScriptRoot ".."' in content
+    assert "$PSScriptRoot" not in content
+    assert "Get-LocalRepositoryPath 'expgolemclone/komorebi-config'" in content
+    assert "SetEnvironmentVariable" not in content
     assert ".config\\komorebi" not in content
     assert "projects\\komorebi-config" not in content
 
@@ -71,7 +72,7 @@ def test_restart_accepts_explicit_command_directories() -> None:
     assert "[string]$WhkdBin" in content
     assert "[string]$AutoHotkeyPath" in content
     assert '$Env:PATH = "$KomorebiBin;$WhkdBin;$Env:PATH"' in content
-    assert 'SetEnvironmentVariable("KOMOREBI_AUTOHOTKEY"' in content
+    assert "$Env:KOMOREBI_AUTOHOTKEY = $AutoHotkeyPath" in content
 
 
 def test_restart_self_elevates_with_uac() -> None:

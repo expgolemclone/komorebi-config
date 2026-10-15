@@ -1,0 +1,65 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LGUG2Z/komorebi/v0.1.41/schema.json",
+  "manage_rules": [
+    {
+      "kind": "Class",
+      "id": "ConsoleWindowClass",
+      "matching_strategy": "Equals"
+    }
+  ],
+  "ignore_rules": [
+    {
+      "kind": "Class",
+      "id": "_WwB",
+      "matching_strategy": "Legacy"
+    },
+    {
+      "kind": "Title",
+      "id": "選択UsbWatchDog",
+      "matching_strategy": "Equals"
+    },
+    {
+      "kind": "Exe",
+      "id": "wmplayer.exe",
+      "matching_strategy": "Equals"
+    },
+    {
+      "kind": "Exe",
+      "id": "OUTLOOK.EXE",
+      "matching_strategy": "Equals"
+    }
+  ],
+  "layered_applications": [
+    {
+      "kind": "Exe",
+      "id": "EXCEL.EXE",
+      "matching_strategy": "Equals"
+    },
+    {
+      "kind": "Exe",
+      "id": "POWERPNT.EXE",
+      "matching_strategy": "Equals"
+    },
+    {
+      "kind": "Exe",
+      "id": "WINWORD.EXE",
+      "matching_strategy": "Equals"
+    }
+  ],
+  "window_hiding_behaviour": "Cloak",
+  "cross_monitor_move_behaviour": "Insert",
+  "default_workspace_padding": 0,
+  "default_container_padding": 0,
+  "mouse_follows_focus": false,
+  "border": true,
+  "border_width": 8,
+  "border_offset": -1,
+  "border_implementation": "Windows",
+  "border_colours": {
+    "single": "#00FFFF",
+    "stack": "#00FFFF",
+    "monocle": "#00FFFF",
+    "floating": "#00FFFF",
+    "unfocused": "#565E65"
+  }
+}

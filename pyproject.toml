@@ -1,0 +1,15 @@
+[project]
+name = "komorebi-config"
+version = "0.1.0"
+description = "komorebi window manager configuration and test suite"
+requires-python = ">=3.11,<4"
+
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]

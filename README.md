@@ -18,7 +18,7 @@ Excel, PowerPoint, Wordはそれぞれ`EXCEL.EXE`, `POWERPNT.EXE`, `WINWORD.EXE`
 
 Scheduled Task `\komorebi` の定義と登録は, [task-scheduler-managementの`komorebi.xml`](https://github.com/expgolemclone/task-scheduler-management/blob/main/scheduled-tasks/definitions/komorebi.xml) で管理します.
 
-既存のAutoHotkey UIAccess processは`WM_DISPLAYCHANGE`を受信し, `QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS)`でactiveな物理display targetの集合を確認します. 2秒間変化が落ち着いた後にtarget集合が変わっていれば, Task Scheduler COM APIで既存の`\komorebi`をon-demand実行します. 接続, 切断, 同数のmonitor交換では再起動し, 解像度, 回転, primary monitorだけの変更では再起動しません. 監視用の追加process, polling loop, service, WMI consumerは使用しません.
+Monitor-change restart behavior is owned by [autohotkey](https://github.com/expgolemclone/autohotkey).
 
 手動で起動または再起動する場合は, PowerShell 7で次のcommandを実行します. `restart.ps1`は非管理者sessionではUACを表示し, 許可後に管理者processで処理を続行します.
 
@@ -26,17 +26,7 @@ Scheduled Task `\komorebi` の定義と登録は, [task-scheduler-managementの`
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 ```
 
-`restart.ps1`は`Get-LocalRepositoryPath 'expgolemclone/komorebi-config'`で登録先をconfig rootとして取得し, 次の処理を行います. task cloneのpathを永続設定へ保存しません. config変数とAutoHotkey実体pathはこのprocessと子processだけに設定し, 旧user変数の廃止はenvxのcurrent-PC desired stateで管理します.
-
-1. `KOMOREBI_CONFIG_HOME`と`WHKD_CONFIG_HOME`をprocess scopeへ設定します.
-2. `LowLevelHooksTimeout`をWindowsの上限である1000 msへ設定します.
-3. komorebi, komorebi-bar, whkdの既存processを終了します.
-4. activeなdisplay adapterを`pnputil`で再起動し, adapterと元のmonitor数, 物理pixelでの画面位置とサイズが安定して復帰するまで待機します. 実行中は画面が数秒暗転します.
-5. Windowsの`DisplayEnhancementService`を再起動し, 復帰した全monitorへ夜間モードの表示効果を再適用します.
-6. Static configを指定してkomorebiを起動し, IPC serverの応答後にwhkdを起動します. komorebi-barは起動しません.
-7. 自動検出した各monitorのworkspace 0へ, 横長なら`Columns`, 縦長なら`Rows`を適用します.
-
-process間lockにより同時実行を防ぎ, display再起動でmonitor watcherが発火しても2本目の処理は開始しません. 2 processは検証済みの実体pathとconfig pathを指定して直接起動するため, `komorebic start`のnetwork更新確認に再起動を依存させません. すべてのnative commandにはtimeoutがあり, 実行前にstage名を表示します. CLIが応答しない場合はhangし続けず, timeoutしたoperation名を含むerrorで終了します.
+Restart uses the mapped configuration, restarts the display adapter and komorebi/whkd, reapplies night light and selects the layout for each monitor's orientation. Displays go dark briefly. It does not start komorebi-bar. A failed stage reports an error rather than waiting indefinitely.
 
 ## Key bindings
 

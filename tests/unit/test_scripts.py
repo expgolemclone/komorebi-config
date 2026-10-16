@@ -112,19 +112,20 @@ def test_readme_documents_restart_uac_elevation() -> None:
     assert "自己昇格せず" not in readme
 
 
-def test_restart_uses_direct_process_lifecycle() -> None:
+def test_restart_uses_upstream_background_launcher() -> None:
     content = _content("restart.ps1")
 
     assert "Stopping managed processes" in content
     assert "Stop-Process -Id $runningProcesses.Id -Force" in content
-    assert "function Start-ManagedProcess" in content
+    assert "function Start-ManagedProcess" not in content
     assert "function Wait-KomorebiReady" in content
-    assert "Start-Process" not in content
     assert (
-        'ArgumentList @("--config", $configPath, "--clean-state")'
+        'ArgumentList @("start", "--config", $configPath, "--clean-state", "--whkd")'
         in content
     )
-    assert 'ArgumentList @("--config", $whkdConfigPath)' in content
+    assert '-Operation "start komorebi"' in content
+    assert "AllowSetForegroundWindow" in content
+    assert "$Env:WHKD_CONFIG_HOME = $configRoot" in content
     assert "Get-Command komorebi-bar" not in content
     assert 'ProcessName "komorebi-bar"' not in content
     assert '@("komorebi", "komorebi-bar", "whkd")' in content
@@ -176,7 +177,7 @@ def test_restart_bounds_every_komorebic_call() -> None:
         assert f"-Operation {operation}" in content
 
 
-def test_restart_restarts_the_single_display_adapter_before_komorebi() -> None:
+def test_restart_limits_display_recovery_to_explicit_switch() -> None:
     content = _content("restart.ps1")
 
     assert "function Get-SingleHealthyDisplayAdapter" in content
@@ -199,11 +200,16 @@ def test_restart_restarts_the_single_display_adapter_before_komorebi() -> None:
     assert "$TimeoutMilliseconds = 30000" in content
     assert "expected $activeScreenCount" in content
 
+    assert "[switch]$RecoverDisplay" in content
+    assert "$elevatedArguments.Add('-RecoverDisplay')" in content
+    assert "if ($RecoverDisplay) {\n    $displayAdapter = Get-SingleHealthyDisplayAdapter\n}" in content
     stop_index = content.index("=== Stopping komorebi ===")
-    adapter_index = content.index("=== Restarting display adapter ===")
-    night_light_index = content.index("=== Restarting Windows Night Light ===")
+    recovery_index = content.index("if ($RecoverDisplay) {", stop_index)
     start_index = content.index("=== Starting komorebi ===")
-    assert stop_index < adapter_index < night_light_index < start_index
+    recovery = content[recovery_index:start_index]
+    assert 'Write-Host "=== Restarting display adapter ==="' in recovery
+    assert "Restart-WindowsNightLight\n}" in recovery
+    assert stop_index < recovery_index < start_index
 
 
 def test_restart_reports_progress_before_runtime_operations() -> None:
@@ -215,7 +221,6 @@ def test_restart_reports_progress_before_runtime_operations() -> None:
         "=== Restarting Windows Night Light ===",
         "=== Starting komorebi ===",
         "=== Waiting for komorebi ===",
-        "=== Starting helper processes ===",
         "=== Waiting for managed processes ===",
         "=== Applying workspace layouts ===",
         "=== Running processes ===",
@@ -236,7 +241,7 @@ def test_restart_restarts_windows_night_light_after_display_recovery() -> None:
     assert display_index < night_light_index < start_index
 
 
-def test_restart_integration_tracks_display_and_preserves_night_light_data() -> None:
+def test_restart_integration_preserves_display_and_night_light() -> None:
     content = (
         WINDOWS_INTEGRATION_TESTS / "test-restart.ps1"
     ).read_text(encoding="utf-8")
@@ -245,11 +250,25 @@ def test_restart_integration_tracks_display_and_preserves_night_light_data() -> 
     assert 'Start-ScheduledTask `' in content
     assert '-TaskName "komorebi"' in content
     assert '$taskInfoAfter.LastTaskResult -ne 0' in content
-    assert "display adapter restarted and is healthy" in content
+    assert "display adapter was not reset and is healthy" in content
+    assert "$displayAdapterArrivalAfter -ne $displayAdapterArrivalBefore" in content
+    assert "DisplayEnhancementService was not restarted" in content
     assert "[System.Windows.Forms.Screen]::AllScreens.Count" in content
     assert "Night Light settings data was preserved" in content
     assert "komorebi detected every active screen" in content
     assert "komorebi monitor sizes match Windows" in content
+
+
+def test_restart_transcripts_handoff_failures() -> None:
+    content = _content("restart.ps1")
+
+    assert "Join-Path $env:LOCALAPPDATA 'komorebi'" in content
+    assert "Start-Transcript -LiteralPath" in content
+    assert "'restart.log'" in content
+    assert "Write-Host ($_ | Out-String)" in content
+    assert "Write-Host $_.ScriptStackTrace" in content
+    assert "Stop-Transcript | Out-Null" in content
+    assert content.index("Start-Transcript") < content.index("$hasKomorebiBin =")
 
 
 def test_restart_uses_supported_hook_timeout() -> None:

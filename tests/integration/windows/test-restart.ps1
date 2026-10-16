@@ -176,12 +176,12 @@ if (
     Write-Host "FAIL: display adapter did not return healthy" -ForegroundColor Red
     $allPassed = $false
 }
-elseif ($displayAdapterArrivalAfter -le $displayAdapterArrivalBefore) {
-    Write-Host "FAIL: display adapter was not restarted" -ForegroundColor Red
+elseif ($displayAdapterArrivalAfter -ne $displayAdapterArrivalBefore) {
+    Write-Host "FAIL: normal restart unexpectedly reset the display adapter" -ForegroundColor Red
     $allPassed = $false
 }
 else {
-    Write-Host "PASS: display adapter restarted and is healthy" -ForegroundColor Green
+    Write-Host "PASS: display adapter was not reset and is healthy" -ForegroundColor Green
 }
 
 $activeScreenCountAfter = [System.Windows.Forms.Screen]::AllScreens.Count
@@ -245,16 +245,16 @@ if ($nightLightServiceAfter.State -ne "Running" -or $nightLightProcessIdAfter -e
 }
 elseif (
     $nightLightProcessIdBefore -ne 0 -and
-    $nightLightProcessIdAfter -eq $nightLightProcessIdBefore
+    $nightLightProcessIdAfter -ne $nightLightProcessIdBefore
 ) {
     Write-Host `
-        "FAIL: DisplayEnhancementService process ID did not change" `
+        "FAIL: normal restart unexpectedly restarted DisplayEnhancementService" `
         -ForegroundColor Red
     $allPassed = $false
 }
 else {
     Write-Host `
-        "PASS: DisplayEnhancementService restarted and is running" `
+        "PASS: DisplayEnhancementService was not restarted and is running" `
         -ForegroundColor Green
 }
 

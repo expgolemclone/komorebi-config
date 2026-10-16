@@ -3,27 +3,12 @@
 param(
     [string]$KomorebiBin,
     [string]$WhkdBin,
-    [string]$AutoHotkeyPath
+    [string]$AutoHotkeyPath,
+    [switch]$RecoverDisplay
 )
 
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
-
-$hasKomorebiBin = -not [string]::IsNullOrWhiteSpace($KomorebiBin)
-$hasWhkdBin = -not [string]::IsNullOrWhiteSpace($WhkdBin)
-$hasAutoHotkeyPath = -not [string]::IsNullOrWhiteSpace($AutoHotkeyPath)
-$explicitCommandPaths = @($hasKomorebiBin, $hasWhkdBin, $hasAutoHotkeyPath)
-if ($explicitCommandPaths -contains $true -and $explicitCommandPaths -contains $false) {
-    throw "KomorebiBin, WhkdBin, and AutoHotkeyPath must be provided together"
-}
-if ($hasKomorebiBin) {
-    foreach ($commandDirectory in @($KomorebiBin, $WhkdBin)) {
-        if (-not (Test-Path -LiteralPath $commandDirectory -PathType Container)) {
-            throw "command directory was not found: $commandDirectory"
-        }
-    }
-    $Env:PATH = "$KomorebiBin;$WhkdBin;$Env:PATH"
-}
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -175,38 +160,6 @@ function Invoke-Komorebic {
         -Operation $Operation `
         -CommandName "komorebic" `
         -TimeoutMilliseconds $TimeoutMilliseconds
-}
-
-function Start-ManagedProcess {
-    param(
-        [Parameter(Mandatory)]
-        [string]$FilePath,
-
-        [Parameter(Mandatory)]
-        [string[]]$ArgumentList,
-
-        [Parameter(Mandatory)]
-        [string]$ProcessName
-    )
-
-    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $startInfo.FileName = $FilePath
-    $startInfo.UseShellExecute = $false
-    $startInfo.CreateNoWindow = $true
-    foreach ($argument in $ArgumentList) {
-        [void]$startInfo.ArgumentList.Add($argument)
-    }
-
-    $process = [System.Diagnostics.Process]::new()
-    $process.StartInfo = $startInfo
-    Write-Host "Starting $ProcessName"
-    try {
-        if (-not $process.Start()) {
-            throw "failed to start $ProcessName"
-        }
-    } finally {
-        $process.Dispose()
-    }
 }
 
 function Wait-KomorebiReady {
@@ -404,6 +357,26 @@ function Restart-DisplayAdapter {
         -ExpectedScreenGeometry $ExpectedScreenGeometry
 }
 
+$logDirectory = Join-Path $env:LOCALAPPDATA 'komorebi'
+New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+Start-Transcript -LiteralPath (Join-Path $logDirectory 'restart.log') -Append -Force | Out-Null
+try {
+$hasKomorebiBin = -not [string]::IsNullOrWhiteSpace($KomorebiBin)
+$hasWhkdBin = -not [string]::IsNullOrWhiteSpace($WhkdBin)
+$hasAutoHotkeyPath = -not [string]::IsNullOrWhiteSpace($AutoHotkeyPath)
+$explicitCommandPaths = @($hasKomorebiBin, $hasWhkdBin, $hasAutoHotkeyPath)
+if ($explicitCommandPaths -contains $true -and $explicitCommandPaths -contains $false) {
+    throw "KomorebiBin, WhkdBin, and AutoHotkeyPath must be provided together"
+}
+if ($hasKomorebiBin) {
+    foreach ($commandDirectory in @($KomorebiBin, $WhkdBin)) {
+        if (-not (Test-Path -LiteralPath $commandDirectory -PathType Container)) {
+            throw "command directory was not found: $commandDirectory"
+        }
+    }
+    $Env:PATH = "$KomorebiBin;$WhkdBin;$Env:PATH"
+}
+
 if (-not (Test-IsAdministrator)) {
     $elevatedArguments = [System.Collections.Generic.List[string]]::new()
     foreach ($argument in @(
@@ -428,6 +401,9 @@ if (-not (Test-IsAdministrator)) {
         }
     }
 
+    if ($RecoverDisplay) {
+        $elevatedArguments.Add('-RecoverDisplay')
+    }
     Invoke-ElevatedRestart -ArgumentList $elevatedArguments.ToArray()
     return
 }
@@ -459,10 +435,11 @@ if (-not (Test-Path -LiteralPath $AutoHotkeyPath -PathType Leaf)) {
     throw "AutoHotkey v2 executable was not found: $AutoHotkeyPath"
 }
 
-$komorebiPath = (Get-Command komorebi -ErrorAction Stop).Source
 $komorebicPath = (Get-Command komorebic -ErrorAction Stop).Source
-$whkdPath = (Get-Command whkd -ErrorAction Stop).Source
-$displayAdapter = Get-SingleHealthyDisplayAdapter
+Get-Command whkd -ErrorAction Stop | Out-Null
+if ($RecoverDisplay) {
+    $displayAdapter = Get-SingleHealthyDisplayAdapter
+}
 $activeScreenCount = Get-ActiveScreenCount
 if ($activeScreenCount -le 0) {
     throw "Windows did not report any active screens"
@@ -507,29 +484,29 @@ if ($runningProcesses.Count -ne 0) {
     }
 }
 
-Write-Host "=== Restarting display adapter ==="
-Restart-DisplayAdapter `
-    -DisplayAdapter $displayAdapter `
-    -ExpectedScreenCount $activeScreenCount `
-    -ExpectedScreenGeometry $activeScreenGeometry
+if ($RecoverDisplay) {
+    Write-Host "=== Restarting display adapter ==="
+    Restart-DisplayAdapter `
+        -DisplayAdapter $displayAdapter `
+        -ExpectedScreenCount $activeScreenCount `
+        -ExpectedScreenGeometry $activeScreenGeometry
 
-Write-Host "=== Restarting Windows Night Light ==="
-Restart-WindowsNightLight
+    Write-Host "=== Restarting Windows Night Light ==="
+    Restart-WindowsNightLight
+}
 
 Write-Host "=== Starting komorebi ==="
-Start-ManagedProcess `
-    -FilePath $komorebiPath `
-    -ArgumentList @("--config", $configPath, "--clean-state") `
-    -ProcessName "komorebi"
+# Use the upstream background launcher rather than a detached CreateNoWindow process.
+# The latter can fail komorebi's AllowSetForegroundWindow startup check.
+$startOutput = Invoke-Komorebic `
+    -KomorebicPath $komorebicPath `
+    -ArgumentList @("start", "--config", $configPath, "--clean-state", "--whkd") `
+    -Operation "start komorebi" `
+    -TimeoutMilliseconds 15000
+Write-Host $startOutput
 
 Write-Host "=== Waiting for komorebi ==="
 $monitorJson = Wait-KomorebiReady -KomorebicPath $komorebicPath
-
-Write-Host "=== Starting helper processes ==="
-Start-ManagedProcess `
-    -FilePath $whkdPath `
-    -ArgumentList @("--config", $whkdConfigPath) `
-    -ProcessName "whkd"
 
 Write-Host "=== Waiting for managed processes ==="
 $startDeadline = [DateTime]::UtcNow.AddSeconds(15)
@@ -553,7 +530,7 @@ if ($monitors.Count -eq 0) {
     throw "komorebi did not detect any monitors"
 }
 if ($monitors.Count -ne $activeScreenCount) {
-    throw "komorebi detected $($monitors.Count) monitors after display restart, expected $activeScreenCount"
+    throw "komorebi detected $($monitors.Count) monitors, expected $activeScreenCount"
 }
 $windowsScreenSizes = @(
     Get-ActiveScreens |
@@ -599,4 +576,12 @@ Write-Host "Detected monitors: $($monitors.Count)"
 } finally {
     $restartLock.ReleaseMutex()
     $restartLock.Dispose()
+}
+} catch {
+    # Handoff tasks use NUL output handles; keep failures in the application transcript.
+    Write-Host ($_ | Out-String)
+    Write-Host $_.ScriptStackTrace
+    throw
+} finally {
+    Stop-Transcript | Out-Null
 }

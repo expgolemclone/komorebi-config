@@ -42,7 +42,7 @@ def _run(command: str, **environment: str) -> subprocess.CompletedProcess[str]:
 
 
 @pytest.mark.parametrize("clean_state", [False, True], ids=["whkd", "komorebi"])
-def test_managed_process_preserves_config_argument(
+def test_native_command_preserves_config_argument(
     tmp_path: Path, clean_state: bool
 ) -> None:
     helper = tmp_path / "capture.py"
@@ -63,8 +63,8 @@ def test_managed_process_preserves_config_argument(
     result = _run(
         r"""
 $arguments = @(ConvertFrom-Json $Env:CHILD_ARGUMENTS)
-Start-ManagedProcess -FilePath $Env:CHILD_EXECUTABLE `
-    -ArgumentList $arguments -ProcessName 'argument capture'
+Invoke-NativeCommand -FilePath $Env:CHILD_EXECUTABLE `
+    -ArgumentList $arguments -Operation 'argument capture' -CommandName 'python'
 $deadline = [DateTime]::UtcNow.AddSeconds(5)
 while (-not (Test-Path -LiteralPath $Env:CAPTURE_FILE)) {
     if ([DateTime]::UtcNow -ge $deadline) { throw 'child did not capture arguments' }
@@ -78,6 +78,27 @@ while (-not (Test-Path -LiteralPath $Env:CAPTURE_FILE)) {
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(output.read_text(encoding="utf-8")) == arguments
+
+
+def test_launcher_preserves_early_errors_without_console(tmp_path: Path) -> None:
+    missing = str(tmp_path / "missing binaries")
+    result = subprocess.run(
+        [
+            "pwsh", "-NoProfile", "-NonInteractive", "-File", str(RESTART),
+            "-KomorebiBin", missing, "-WhkdBin", missing,
+            "-AutoHotkeyPath", str(tmp_path / "missing.exe"),
+        ],
+        env={**os.environ, "LOCALAPPDATA": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=15,
+    )
+    assert result.returncode != 0
+    transcript = (tmp_path / "komorebi/restart.log").read_text(encoding="utf-8-sig")
+    assert "command directory was not found:" in transcript
+    assert missing in transcript
+    assert "=== Stopping komorebi ===" not in transcript
 
 
 def test_native_command_reports_failure_output() -> None:

@@ -26,7 +26,9 @@ Monitor-change restart behavior is owned by [autohotkey](https://github.com/expg
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
 ```
 
-Restart uses the mapped configuration, restarts the display adapter and komorebi/whkd, reapplies night light and selects the layout for each monitor's orientation. Displays go dark briefly. It does not start komorebi-bar. A failed stage reports an error rather than waiting indefinitely.
+Restart uses `komorebic start` with the mapped configuration, restarts komorebi/whkd and selects the layout for each monitor's orientation. It does not reset displays or start komorebi-bar. Startup progress and failures are logged to `%LOCALAPPDATA%/komorebi/restart.log`.
+
+For explicit graphics recovery only, run `pwsh -NoProfile -File scripts/restart.ps1 -RecoverDisplay`. This also resets the display adapter and reapplies Night Light; displays go dark briefly.
 
 ## Key bindings
 

@@ -80,6 +80,17 @@ def test_each_monitor_has_one_orientation_based_workspace() -> None:
         assert workspaces[0]["layout"] == {"Default": expected_layout}
 
 
+def test_libreoffice_launch_name_change_rule_is_loaded() -> None:
+    state = _komorebic(["global-state"])
+
+    assert isinstance(state, dict)
+    assert {
+        "kind": "Exe",
+        "id": "soffice.bin",
+        "matching_strategy": "Equals",
+    } in state["name_change_on_launch_identifiers"]
+
+
 def test_office_application_rules_are_loaded() -> None:
     state = _komorebic(["global-state"])
 

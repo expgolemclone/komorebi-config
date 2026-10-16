@@ -97,6 +97,16 @@ def test_office_main_windows_are_managed_as_layered_applications() -> None:
     } in config["ignore_rules"]
 
 
+def test_libreoffice_launch_name_changes_are_managed() -> None:
+    config = _load_json("komorebi.json")
+
+    assert {
+        "kind": "Exe",
+        "id": "soffice.bin",
+        "matching_strategy": "Equals",
+    } in config["object_name_change_applications"]
+
+
 def test_whkd_uses_only_workspace_zero() -> None:
     whkdrc = (ROOT / "whkdrc").read_text(encoding="utf-8")
     focus_indexes = re.findall(r"komorebic focus-workspace\s+(\d+)", whkdrc)

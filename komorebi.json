@@ -46,6 +46,13 @@
       "matching_strategy": "Equals"
     }
   ],
+  "object_name_change_applications": [
+    {
+      "kind": "Exe",
+      "id": "soffice.bin",
+      "matching_strategy": "Equals"
+    }
+  ],
   "window_hiding_behaviour": "Cloak",
   "cross_monitor_move_behaviour": "Insert",
   "default_workspace_padding": 0,

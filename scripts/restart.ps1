@@ -498,9 +498,11 @@ if ($RecoverDisplay) {
 Write-Host "=== Starting komorebi ==="
 # Use the upstream background launcher rather than a detached CreateNoWindow process.
 # The latter can fail komorebi's AllowSetForegroundWindow startup check.
+# KOMOREBI_CONFIG_HOME is authoritative. Passing --config also makes this upstream
+# version invoke komorebi-bar --aliases, which creates an unwanted bar config.
 $startOutput = Invoke-Komorebic `
     -KomorebicPath $komorebicPath `
-    -ArgumentList @("start", "--config", $configPath, "--clean-state", "--whkd") `
+    -ArgumentList @("start", "--clean-state", "--whkd") `
     -Operation "start komorebi" `
     -TimeoutMilliseconds 15000
 Write-Host $startOutput

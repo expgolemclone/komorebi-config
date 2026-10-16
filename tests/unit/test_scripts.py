@@ -120,12 +120,14 @@ def test_restart_uses_upstream_background_launcher() -> None:
     assert "function Start-ManagedProcess" not in content
     assert "function Wait-KomorebiReady" in content
     assert (
-        'ArgumentList @("start", "--config", $configPath, "--clean-state", "--whkd")'
+        'ArgumentList @("start", "--clean-state", "--whkd")'
         in content
     )
     assert '-Operation "start komorebi"' in content
     assert "AllowSetForegroundWindow" in content
     assert "$Env:WHKD_CONFIG_HOME = $configRoot" in content
+    assert "$Env:KOMOREBI_CONFIG_HOME = $configRoot" in content
+    assert '"start", "--config"' not in content
     assert "Get-Command komorebi-bar" not in content
     assert 'ProcessName "komorebi-bar"' not in content
     assert '@("komorebi", "komorebi-bar", "whkd")' in content

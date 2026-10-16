@@ -159,6 +159,14 @@ if ($taskInfoAfter.LastTaskResult -ne 0) {
 }
 Write-Host "PASS: restart.ps1 task completed successfully" -ForegroundColor Green
 
+if (Test-Path -LiteralPath (Join-Path $repoRoot 'komorebi.bar.json')) {
+    Write-Host "FAIL: normal restart generated an unwanted bar configuration" -ForegroundColor Red
+    $allPassed = $false
+}
+else {
+    Write-Host "PASS: no bar configuration was generated" -ForegroundColor Green
+}
+
 $displayAdapterAfter = Get-PnpDevice `
     -InstanceId $displayAdapter.InstanceId `
     -ErrorAction SilentlyContinue

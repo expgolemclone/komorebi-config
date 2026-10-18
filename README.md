@@ -1,70 +1,57 @@
 # komorebi-config
 
-Windows tiling window manager [komorebi][komorebi]の個人用設定です.
+Personal Windows configuration for [komorebi][komorebi] v0.1.41 and [whkd][whkd], with native Rust restart and cursor helpers.
 
-komorebiにmonitorを自動検出させ, 各monitorでworkspace 0を1つだけ使用します. 起動時に横長monitorへ`Columns`, 縦長monitorへ`Rows` layoutを適用します.
-Classic console windowは`ConsoleWindowClass`で強制的に管理し, 管理者権限で起動したPowerShellも整列対象に含めます. Classic Outlookは`OUTLOOK.EXE`のignore ruleで管理対象外にします.
-Excel, PowerPoint, Wordはそれぞれ`EXCEL.EXE`, `POWERPNT.EXE`, `WINWORD.EXE`をlayered applicationとして管理し, `_WwB` classのpopupと補助windowだけを管理対象外にします.
-
-## Requirements
-
-- PowerShell 7
-- [komorebi][komorebi] v0.1.41
-- [whkd][whkd]
-- AutoHotkey v2.0.26
-- jjとenvxの共通Python環境, unit testを実行する場合のみ
+Monitors are detected automatically. Each uses workspace 0 with Columns on landscape monitors and Rows otherwise. Classic console windows and Office documents are managed; Classic Outlook and Office helper windows are excluded.
 
 ## Setup
 
-Scheduled Task `\komorebi` の定義と登録は, [task-scheduler-managementの`komorebi.xml`](https://github.com/expgolemclone/task-scheduler-management/blob/main/scheduled-tasks/definitions/komorebi.xml) で管理します.
-
-Monitor-change restart behavior is owned by [autohotkey](https://github.com/expgolemclone/autohotkey).
-
-手動で起動または再起動する場合は, PowerShell 7で次のcommandを実行します. `restart.ps1`は非管理者sessionではUACを表示し, 許可後に管理者processで処理を続行します.
+Install the helper from the mapped repository into the shared Cargo environment:
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart.ps1
+Import-Module "$HOME/local-repository-map/repository-map.psm1"
+cargo install --locked --path (Get-LocalRepositoryPath 'expgolemclone/komorebi-config') --bin komorebi-config --root "$env:LOCALAPPDATA/envx/runtimes/rust"
 ```
 
-Restart uses `komorebic start` with the mapped configuration, restarts komorebi/whkd and selects the layout for each monitor's orientation. It does not reset displays or start komorebi-bar. Startup progress and failures are logged to `%LOCALAPPDATA%/komorebi/restart.log`.
+The scheduled task `\komorebi` is managed by [task-scheduler-management](https://github.com/expgolemclone/task-scheduler-management). It runs the installed helper through `task-runner.exe`, elevated, immediately after logon. Register or update it locally with the selected deployment profile. [AutoHotkey](https://github.com/expgolemclone/autohotkey) owns monitor-change restart requests, not this helper.
 
-For explicit graphics recovery only, run `pwsh -NoProfile -File scripts/restart.ps1 -RecoverDisplay`. This also resets the display adapter and reapplies Night Light; displays go dark briefly.
+```powershell
+komorebi-config restart
+```
+
+Restart requests administrator privileges when necessary, validates configuration, replaces komorebi/whkd, and verifies monitor layouts before releasing the daemons. It does not reset displays or start komorebi-bar. Logs: `%LOCALAPPDATA%/komorebi/restart.log`.
+
+`komorebi-config restart --recover-display` additionally resets the display adapter and restarts the Night Light service. Use only for deliberate graphics recovery; displays briefly go dark.
 
 ## Key bindings
 
 | Key | Action |
 | --- | --- |
-| `Alt + Q` | Windowを閉じる |
-| `Alt + M` | Windowを最小化する |
-| `Alt + T` | Floatingを切り替える |
-| `Alt + Shift + F` | Monocleを切り替える |
-| `Alt + H/J/K/L` | Focusを左, 下, 上, 右へ移動する |
-| `Alt + Shift + H/J/K/L` | Windowを左, 下, 上, 右へ移動する |
-| `Alt + 1` | Workspace 0へfocusする |
-| `Alt + Shift + 1` | Windowをworkspace 0へ移動する |
-| `Alt + O` | whkdを再起動する |
-| `Alt + Shift + O` | `komorebi.json`をrunning instanceへ反映する |
+| Alt + Q / M | Close / minimize |
+| Alt + H/J/K/L | Focus left/down/up/right and move the cursor to the window's bottom center |
+| Alt + Shift + H/J/K/L | Move the window |
+| Alt + T / Shift + F | Toggle floating / monocle |
+| Alt + 1 / Shift + 1 | Focus workspace 0 / move to workspace 0 |
+| Alt + O | Restart whkd |
+| Alt + Shift + O | Replace the running configuration |
 
-その他のbindingは[whkdrc](whkdrc)を参照してください.
+See [whkdrc](whkdrc) for all bindings. The cursor helper does not require AutoHotkey or elevation. RepositoryMap and upstream komorebic retain their PowerShell dependencies.
 
 ## Tests
 
-通常のtestはhardwareやrunning processに依存しません.
-
 ```powershell
-envx-python -m pytest -q
-envx-python .\scripts\validate_encoding.py
+cargo fmt --all -- --check
+cargo clippy --locked --all-targets --features live-tests -- -D warnings
+cargo test --locked --release --features process-tests
 ```
 
-実機のkomorebi状態を検証する場合は, restart後にintegration testを明示実行します.
+Explicit read-only runtime checks and disposable tests under the installed supervisor:
 
 ```powershell
-pwsh -NoProfile -File .\tests\integration\windows\test-restart.ps1
-python -m pytest -q tests\integration\test_komorebi_runtime.py
-pwsh -NoProfile -File .\tests\integration\windows\test-config-schema.ps1
-pwsh -NoProfile -File .\tests\integration\windows\test-cursor-helper.ps1
-pwsh -NoProfile -File .\tests\integration\windows\test-border-color.ps1
+cargo test --locked --release --features live-tests --test live --test process
 ```
+
+These tests do not restart the desktop, move the cursor, or reset displays.
 
 [komorebi]: https://github.com/LGUG2Z/komorebi
 [whkd]: https://github.com/LGUG2Z/whkd

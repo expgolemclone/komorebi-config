@@ -43,6 +43,27 @@ fn installed_schema_accepts_the_mapped_configuration() {
 }
 
 #[test]
+fn installed_preflight_rejects_invalid_configuration() {
+    let root = config::repository_root().unwrap();
+    let invocation = Invocation::new(which::which("komorebic").unwrap())
+        .env("KOMOREBI_CONFIG_HOME", Some(&root))
+        .env("WHKD_CONFIG_HOME", Some(&root));
+    let temporary = tempfile::tempdir().unwrap();
+    let invalid = temporary.path().join("invalid.json");
+    std::fs::write(&invalid, br#"{"border_width":"not a number"}"#).unwrap();
+    let result = capture(
+        &invocation.args([
+            std::ffi::OsString::from("check"),
+            "--komorebi-config".into(),
+            invalid.into_os_string(),
+        ]),
+        Duration::from_secs(10),
+    );
+    assert!(result.is_err());
+    assert!(format!("{:#}", result.unwrap_err()).contains("not a number"));
+}
+
+#[test]
 fn live_daemon_monitors_layouts_processes_and_application_rules_match() {
     let invocation = Invocation::new(which::which("komorebic").unwrap());
     let screens = display::screens().unwrap();

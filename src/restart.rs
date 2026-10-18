@@ -76,6 +76,14 @@ fn installed(name: &str) -> Result<PathBuf> {
         .with_context(|| format!("resolving {name}"))
 }
 
+fn single_process(count: usize) -> Result<bool> {
+    ensure!(
+        count <= 1,
+        "multiple managed processes during readiness: {count}"
+    );
+    Ok(count == 1)
+}
+
 impl Native<'_> {
     fn command(
         &self,
@@ -137,6 +145,17 @@ impl Backend for Native<'_> {
             actual.lines().next() == Some(format!("komorebic {version}").as_str()),
             "installed komorebic version does not match configured schema {version}"
         );
+        self.log
+            .event("validating configuration with installed komorebic")?;
+        process::capture(
+            &command.clone().args([
+                OsString::from("check"),
+                OsString::from("--komorebi-config"),
+                self.root.join("komorebi.json").into_os_string(),
+            ]),
+            Duration::from_secs(10),
+        )
+        .context("installed komorebic rejected the configuration before shutdown")?;
         let screens = display::screens()?;
         let (adapter, pnputil) = if recover {
             let adapters = display::healthy_adapters()?;
@@ -259,11 +278,10 @@ impl Backend for Native<'_> {
             Duration::from_millis(200),
             |remaining| {
                 let running = processes::find(&prepared.managed[..1], false)?;
-                ensure!(
-                    running.len() == 1,
-                    "expected exactly one komorebi process during readiness, found {}",
-                    running.len()
-                );
+                if !single_process(running.len())? {
+                    failure = "komorebi has not started yet".into();
+                    return Ok(None);
+                }
                 match self.command(
                     prepared,
                     &["monitor-information"],
@@ -292,12 +310,8 @@ impl Backend for Native<'_> {
                             .eq_ignore_ascii_case(&path.to_string_lossy())
                     })
                     .count();
-                ensure!(
-                    count <= 1,
-                    "multiple managed processes for {}",
-                    path.display()
-                );
-                ready &= count == 1;
+                ready &= single_process(count)
+                    .with_context(|| format!("waiting for {}", path.display()))?;
             }
             Ok(ready.then_some(()))
         })?;
@@ -401,6 +415,13 @@ mod tests {
         fn abort(&self, _: ()) -> Result<()> {
             self.stage("abort")
         }
+    }
+
+    #[test]
+    fn readiness_waits_for_delayed_start_but_rejects_duplicate_processes() {
+        assert!(!single_process(0).unwrap());
+        assert!(single_process(1).unwrap());
+        assert!(single_process(2).is_err());
     }
 
     #[test]

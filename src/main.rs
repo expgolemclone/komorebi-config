@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use anyhow::{Context, Result, ensure};
 use clap::{Parser, Subcommand};
 use komorebi_config::{
@@ -64,7 +66,7 @@ fn execute(operation: Operation) -> Result<u32> {
                     .zip(origin_session)
                     .map(|(sid, session)| Identity { sid, session });
                 validate_identity(&identity, origin.as_ref())?;
-                // Fail closed before UAC or stopping anything during the bounded migration stage.
+                // Reject incomplete configuration before UAC or stopping anything.
                 let root = config::repository_root()?;
                 config::validate_native_bindings(&root)?;
                 config::shared_executable()?;

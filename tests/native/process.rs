@@ -316,6 +316,19 @@ fn early_restart_errors_are_logged_even_with_nul_output_handles() {
     assert!(!log.contains("stopping managed processes"));
 }
 
+#[cfg(not(debug_assertions))]
+#[test]
+fn release_entrypoint_does_not_allocate_a_console() {
+    let image = fs::read(env!("CARGO_BIN_EXE_komorebi-config")).unwrap();
+    let pe = u32::from_le_bytes(image[0x3c..0x40].try_into().unwrap()) as usize;
+    assert_eq!(&image[pe..pe + 4], b"PE\0\0");
+    let subsystem = pe + 24 + 68;
+    assert_eq!(
+        u16::from_le_bytes(image[subsystem..subsystem + 2].try_into().unwrap()),
+        2
+    );
+}
+
 #[test]
 fn cli_help_and_version_are_native_and_do_not_start_the_desktop() {
     for argument in ["--help", "--version"] {

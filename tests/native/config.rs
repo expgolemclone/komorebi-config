@@ -79,6 +79,7 @@ fn schema_version_rejects_missing_malformed_and_foreign_urls() {
 
 #[test]
 fn hotkeys_continue_to_target_only_workspace_zero() {
+    validate_native_bindings(&root()).unwrap();
     let keys = fs::read_to_string(root().join("whkdrc")).unwrap();
     assert!(keys.lines().any(|line| line.trim() == ".shell cmd"));
     for line in keys
@@ -149,6 +150,7 @@ fn maintained_native_sources_and_configuration_are_utf8_lf() {
     for name in [
         "Cargo.toml",
         "Cargo.lock",
+        "README.md",
         ".gitignore",
         ".gitattributes",
         "komorebi.json",

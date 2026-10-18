@@ -27,6 +27,8 @@ pub fn repository_root() -> Result<PathBuf> {
             "-NoLogo",
             "-NoProfile",
             "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
             "-Command",
             script,
         ]),

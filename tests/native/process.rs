@@ -271,6 +271,21 @@ fn installed_supervisor_timeout_reaps_nested_native_jobs() {
     supervisor_case("nested-stay", "1", false);
 }
 
+#[cfg(feature = "live-tests")]
+#[test]
+fn repository_map_does_not_depend_on_an_inherited_interactive_execution_policy() {
+    let expected = komorebi_config::config::repository_root().unwrap();
+    for policy in [None, Some("Restricted")] {
+        let output = process::capture(
+            &command(&["repository-root"]).env("PSExecutionPolicyPreference", policy),
+            Duration::from_secs(40),
+        )
+        .unwrap();
+        let actual: PathBuf = serde_json::from_slice(&output).unwrap();
+        assert_eq!(actual, expected);
+    }
+}
+
 #[test]
 fn child_environment_is_scoped_and_can_remove_legacy_variables() {
     let invocation = command(&["environment", "KOMOREBI_TEST_ONLY"])

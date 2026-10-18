@@ -1,0 +1,67 @@
+[package]
+name = "komorebi-config"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+publish = false
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive"] }
+process-wrap = { version = "10.0.1", default-features = false, features = ["std", "job-object", "creation-flags"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tempfile = "3.27.0"
+which = "8.0.6"
+windows = { version = "0.62.2", features = [
+    "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Registry",
+    "Win32_System_RemoteDesktop",
+    "Win32_System_Services",
+    "Win32_System_Threading",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[dev-dependencies]
+jsonschema = { version = "0.59.0", default-features = false }
+
+[features]
+process-tests = []
+live-tests = ["process-tests"]
+
+[[bin]]
+name = "komorebi-config"
+path = "src/main.rs"
+
+[[bin]]
+name = "process-fixture"
+path = "tests/native/support/fixture.rs"
+test = false
+required-features = ["process-tests"]
+
+[[test]]
+name = "config"
+path = "tests/native/config.rs"
+
+[[test]]
+name = "process"
+path = "tests/native/process.rs"
+required-features = ["process-tests"]
+
+[[test]]
+name = "live"
+path = "tests/native/live.rs"
+required-features = ["live-tests"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

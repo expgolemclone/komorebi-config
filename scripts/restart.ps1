@@ -415,7 +415,7 @@ if ($null -eq $restartLock) {
 }
 
 try {
-Import-Module (Join-Path $HOME 'local-repository-map/RepositoryMap.psm1')
+Import-Module (Join-Path $HOME 'local-repository-map/repository-map.psm1')
 $configRoot = Get-LocalRepositoryPath 'expgolemclone/komorebi-config'
 $configPath = Join-Path $configRoot "komorebi.json"
 $whkdConfigPath = Join-Path $configRoot "whkdrc"

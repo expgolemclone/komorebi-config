@@ -59,7 +59,7 @@ pub fn validate_native_bindings(root: &Path) -> Result<()> {
     ensure!(
         !content.contains("KOMOREBI_AUTOHOTKEY")
             && !content.contains("move-cursor-bottom-center.ahk"),
-        "whkdrc still uses the legacy AHK helper; finish the approved hotkey cutover before using native restart"
+        "whkdrc must not reference retired AHK cursor helpers"
     );
     for direction in ["left", "down", "up", "right"] {
         let action = format!(

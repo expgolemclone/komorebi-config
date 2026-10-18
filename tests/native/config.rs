@@ -93,7 +93,7 @@ fn hotkeys_continue_to_target_only_workspace_zero() {
 }
 
 #[test]
-fn native_restart_refuses_legacy_or_incomplete_hotkey_cutover() {
+fn native_restart_requires_complete_native_hotkey_bindings() {
     let temporary = tempfile::tempdir().unwrap();
     fs::write(
         temporary.path().join("whkdrc"),

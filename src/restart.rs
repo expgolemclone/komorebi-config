@@ -104,7 +104,7 @@ impl Backend for Native<'_> {
     fn prepare(&self, recover: bool) -> Result<Prepared> {
         self.log.event("preflight")?;
         config::validate_native_bindings(&self.root)?;
-        let shared = config::shared_executable()?;
+        let executable = config::current_executable()?;
         let configuration = config::read(&self.root)?;
         let version = config::schema_version(&configuration)?;
         let komorebic = installed("komorebic.exe")?;
@@ -114,7 +114,7 @@ impl Backend for Native<'_> {
             komorebic.parent() == komorebi.parent(),
             "komorebic and komorebi resolve to different installations"
         );
-        let mut directories: Vec<_> = [&komorebic, &whkd, &shared]
+        let mut directories: Vec<_> = [&komorebic, &whkd, &executable]
             .into_iter()
             .map(|path| {
                 path.parent()

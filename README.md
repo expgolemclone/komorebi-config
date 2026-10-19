@@ -6,13 +6,6 @@ Monitors are detected automatically. Each uses workspace 0 with Columns on lands
 
 ## Setup
 
-Install the helper from the mapped repository into the shared Cargo environment:
-
-```powershell
-Import-Module "$HOME/local-repository-map/repository-map.psm1"
-cargo install --locked --path (Get-LocalRepositoryPath 'expgolemclone/komorebi-config') --bin komorebi-config --root "$env:LOCALAPPDATA/envx/runtimes/rust"
-```
-
 The scheduled task `\komorebi` is managed by [task-scheduler-management](https://github.com/expgolemclone/task-scheduler-management). It runs the installed helper through `task-runner.exe`, elevated, immediately after logon. Register or update it locally with the selected deployment profile. [AutoHotkey](https://github.com/expgolemclone/autohotkey) owns monitor-change restart requests, not this helper.
 
 ```powershell

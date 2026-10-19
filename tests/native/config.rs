@@ -103,7 +103,7 @@ fn native_restart_requires_complete_native_hotkey_bindings() {
     assert!(validate_native_bindings(temporary.path()).is_err());
     let binding = |direction| {
         format!(
-            "alt + x : komorebic focus {direction} && start \"\" /b \"%LOCALAPPDATA%\\envx\\runtimes\\rust\\bin\\komorebi-config.exe\" move-cursor\n"
+            "alt + x : komorebic focus {direction} && start \"\" /b \"komorebi-config.exe\" move-cursor\n"
         )
     };
     let keys = format!(

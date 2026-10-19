@@ -63,7 +63,7 @@ pub fn validate_native_bindings(root: &Path) -> Result<()> {
     );
     for direction in ["left", "down", "up", "right"] {
         let action = format!(
-            r#"komorebic focus {direction} && start "" /b "%LOCALAPPDATA%\envx\runtimes\rust\bin\komorebi-config.exe" move-cursor"#
+            r#"komorebic focus {direction} && start "" /b "komorebi-config.exe" move-cursor"#
         );
         ensure!(
             content
@@ -77,16 +77,8 @@ pub fn validate_native_bindings(root: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn shared_executable() -> Result<PathBuf> {
-    let root = PathBuf::from(env::var_os("LOCALAPPDATA").context("LOCALAPPDATA is missing")?);
-    ensure!(root.is_absolute(), "LOCALAPPDATA must be absolute");
-    let executable = root.join("envx/runtimes/rust/bin/komorebi-config.exe");
-    ensure!(
-        executable.is_file(),
-        "shared native helper is missing: {}",
-        executable.display()
-    );
-    Ok(executable)
+pub fn current_executable() -> Result<PathBuf> {
+    env::current_exe().context("resolving the running native helper")
 }
 
 pub fn schema_version(config: &Value) -> Result<&str> {

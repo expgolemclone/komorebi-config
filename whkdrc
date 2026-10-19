@@ -11,10 +11,10 @@ alt + q                 : komorebic close
 alt + m                 : komorebic minimize
 
 # Focus windows
-alt + h                 : komorebic focus left && start "" /b "%LOCALAPPDATA%\envx\runtimes\rust\bin\komorebi-config.exe" move-cursor
-alt + j                 : komorebic focus down && start "" /b "%LOCALAPPDATA%\envx\runtimes\rust\bin\komorebi-config.exe" move-cursor
-alt + k                 : komorebic focus up && start "" /b "%LOCALAPPDATA%\envx\runtimes\rust\bin\komorebi-config.exe" move-cursor
-alt + l                 : komorebic focus right && start "" /b "%LOCALAPPDATA%\envx\runtimes\rust\bin\komorebi-config.exe" move-cursor
+alt + h                 : komorebic focus left && start "" /b "komorebi-config.exe" move-cursor
+alt + j                 : komorebic focus down && start "" /b "komorebi-config.exe" move-cursor
+alt + k                 : komorebic focus up && start "" /b "komorebi-config.exe" move-cursor
+alt + l                 : komorebic focus right && start "" /b "komorebi-config.exe" move-cursor
 alt + shift + oem_4     : komorebic cycle-focus previous # oem_4 is [
 alt + shift + oem_6     : komorebic cycle-focus next # oem_6 is ]
 

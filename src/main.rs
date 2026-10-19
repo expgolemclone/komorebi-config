@@ -69,7 +69,6 @@ fn execute(operation: Operation) -> Result<u32> {
                 // Reject incomplete configuration before UAC or stopping anything.
                 let root = config::repository_root()?;
                 config::validate_native_bindings(&root)?;
-                config::shared_executable()?;
                 if !privilege::is_elevated()? {
                     ensure!(
                         origin.is_none(),

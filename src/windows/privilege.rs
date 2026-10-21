@@ -97,9 +97,9 @@ pub fn identity() -> Result<Identity> {
     })
 }
 
-pub fn elevate(recover: bool, identity: &Identity) -> Result<u32> {
+pub fn elevate(recover: bool, identity: &Identity, directory: &std::path::Path) -> Result<u32> {
     let executable = wide(std::env::current_exe()?)?;
-    let arguments = wide(elevation_arguments(recover, identity)?)?;
+    let arguments = wide(elevation_arguments(recover, identity, directory)?)?;
     let mut info = SHELLEXECUTEINFOW {
         cbSize: size_of::<SHELLEXECUTEINFOW>() as u32,
         fMask: SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC,

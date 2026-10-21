@@ -68,10 +68,6 @@ fn main() {
             }
             job.release();
         }
-        "repository-root" => print!(
-            "{}",
-            serde_json::to_string(&komorebi_config::config::repository_root().unwrap()).unwrap()
-        ),
         "environment" => print!("{}", env::var(&args[1]).unwrap_or_default()),
         "lock" => {
             let lock = komorebi_config::windows::privilege::RestartLock::named(&args[1]).unwrap();

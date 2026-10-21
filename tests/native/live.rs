@@ -7,8 +7,8 @@ use serde_json::{Value, json};
 use std::time::Duration;
 
 #[test]
-fn installed_schema_accepts_the_mapped_configuration() {
-    let root = config::repository_root().unwrap();
+fn installed_schema_accepts_the_configuration() {
+    let root = config::directory(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
     let configuration = config::read(&root).unwrap();
     let command = which::which("komorebic").unwrap();
     let invocation = Invocation::new(&command);
@@ -44,7 +44,7 @@ fn installed_schema_accepts_the_mapped_configuration() {
 
 #[test]
 fn installed_preflight_rejects_invalid_configuration() {
-    let root = config::repository_root().unwrap();
+    let root = config::directory(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
     let invocation = Invocation::new(which::which("komorebic").unwrap())
         .env("KOMOREBI_CONFIG_HOME", Some(&root))
         .env("WHKD_CONFIG_HOME", Some(&root));

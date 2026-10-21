@@ -9,12 +9,10 @@ use komorebi_config::{
     restart,
     windows::{display, privilege, service},
 };
+use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(
-    version,
-    about = "Native helpers for the mapped komorebi configuration"
-)]
+#[command(version, about = "Native helpers for komorebi configuration")]
 struct Cli {
     #[command(subcommand)]
     command: Operation,
@@ -24,6 +22,8 @@ struct Cli {
 enum Operation {
     /// Restart komorebi/whkd and apply orientation-based layouts.
     Restart {
+        #[arg(long)]
+        config_directory: PathBuf,
         #[arg(long)]
         recover_display: bool,
         #[arg(long, hide = true, requires = "origin_session")]
@@ -52,6 +52,7 @@ fn execute(operation: Operation) -> Result<u32> {
             Ok(0)
         }
         Operation::Restart {
+            config_directory,
             recover_display,
             origin_sid,
             origin_session,
@@ -67,7 +68,7 @@ fn execute(operation: Operation) -> Result<u32> {
                     .map(|(sid, session)| Identity { sid, session });
                 validate_identity(&identity, origin.as_ref())?;
                 // Reject incomplete configuration before UAC or stopping anything.
-                let root = config::repository_root()?;
+                let root = config::directory(&config_directory)?;
                 config::validate_native_bindings(&root)?;
                 if !privilege::is_elevated()? {
                     ensure!(
@@ -75,7 +76,7 @@ fn execute(operation: Operation) -> Result<u32> {
                         "elevated restart did not acquire administrator privileges"
                     );
                     log.event("requesting administrator privileges")?;
-                    return privilege::elevate(recover_display, &identity);
+                    return privilege::elevate(recover_display, &identity, &root);
                 }
                 let Some(_lock) = privilege::RestartLock::acquire()? else {
                     log.event("another restart is already running")?;

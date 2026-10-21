@@ -1,10 +1,8 @@
-use crate::process::{Invocation, capture};
 use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    time::Duration,
 };
 
 pub fn system_tool(relative: &str) -> Result<PathBuf> {
@@ -19,29 +17,19 @@ pub fn system_tool(relative: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-pub fn repository_root() -> Result<PathBuf> {
-    let powershell = system_tool("System32/WindowsPowerShell/v1.0/powershell.exe")?;
-    let script = r#"$ErrorActionPreference = 'Stop'; [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); Import-Module (Join-Path $HOME 'local-repository-map/repository-map.psm1') -ErrorAction Stop; Get-LocalRepositoryPath 'expgolemclone/komorebi-config' | ConvertTo-Json -Compress"#;
-    let output = capture(
-        &Invocation::new(powershell).args([
-            "-NoLogo",
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            script,
-        ]),
-        Duration::from_secs(30),
-    )
-    .context("resolving configuration through RepositoryMap")?;
-    let root: PathBuf = serde_json::from_slice(&output)
-        .context("RepositoryMap returned an invalid path response")?;
+pub fn directory(path: &Path) -> Result<PathBuf> {
     ensure!(
-        root.is_absolute() && root.is_dir(),
-        "RepositoryMap did not return an existing absolute directory"
+        path.is_absolute() && path.is_dir(),
+        "configuration must be an existing absolute directory"
     );
-    Ok(root)
+    for name in ["komorebi.json", "whkdrc"] {
+        ensure!(
+            path.join(name).is_file(),
+            "configuration file is missing: {name}"
+        );
+    }
+    path.canonicalize()
+        .context("resolving configuration directory")
 }
 
 pub fn read(root: &Path) -> Result<Value> {

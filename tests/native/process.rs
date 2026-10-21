@@ -271,21 +271,6 @@ fn installed_supervisor_timeout_reaps_nested_native_jobs() {
     supervisor_case("nested-stay", "1", false);
 }
 
-#[cfg(feature = "live-tests")]
-#[test]
-fn repository_map_does_not_depend_on_an_inherited_interactive_execution_policy() {
-    let expected = komorebi_config::config::repository_root().unwrap();
-    for policy in [None, Some("Restricted")] {
-        let output = process::capture(
-            &command(&["repository-root"]).env("PSExecutionPolicyPreference", policy),
-            Duration::from_secs(40),
-        )
-        .unwrap();
-        let actual: PathBuf = serde_json::from_slice(&output).unwrap();
-        assert_eq!(actual, expected);
-    }
-}
-
 #[test]
 fn child_environment_is_scoped_and_can_remove_legacy_variables() {
     let invocation = command(&["environment", "KOMOREBI_TEST_ONLY"])
@@ -316,7 +301,8 @@ fn named_lock_serializes_separate_processes() {
 fn early_restart_errors_are_logged_even_with_nul_output_handles() {
     let temporary = tempfile::tempdir().unwrap();
     let status = Command::new(env!("CARGO_BIN_EXE_komorebi-config"))
-        .arg("restart")
+        .args(["restart", "--config-directory"])
+        .arg(temporary.path())
         .env("LOCALAPPDATA", temporary.path())
         .env("SystemRoot", temporary.path())
         .stdin(Stdio::null())
@@ -327,7 +313,7 @@ fn early_restart_errors_are_logged_even_with_nul_output_handles() {
     assert!(!status.success());
     let log = fs::read_to_string(temporary.path().join("komorebi/restart.log")).unwrap();
     assert!(log.contains("restart failed:"));
-    assert!(log.contains("Windows tool is missing:"));
+    assert!(log.contains("configuration file is missing:"));
     assert!(!log.contains("stopping managed processes"));
 }
 

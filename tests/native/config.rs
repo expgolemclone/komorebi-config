@@ -120,6 +120,23 @@ fn native_restart_requires_complete_native_hotkey_bindings() {
     assert!(validate_native_bindings(temporary.path()).is_err());
 }
 
+#[test]
+fn configuration_directory_is_explicit_absolute_and_complete() {
+    assert!(komorebi_config::config::directory(Path::new(".")).is_err());
+    let temporary = tempfile::tempdir().unwrap();
+    let directory = temporary.path().join("日本語's configuration");
+    fs::create_dir(&directory).unwrap();
+    assert!(komorebi_config::config::directory(&directory).is_err());
+    fs::write(directory.join("komorebi.json"), "{}\n").unwrap();
+    assert!(komorebi_config::config::directory(&directory).is_err());
+    fs::write(directory.join("whkdrc"), ".shell cmd\n").unwrap();
+    assert_eq!(
+        komorebi_config::config::directory(&directory).unwrap(),
+        directory.canonicalize().unwrap()
+    );
+    assert!(komorebi_config::config::directory(&directory.join("komorebi.json")).is_err());
+}
+
 fn check_text(path: &Path) {
     let bytes = fs::read(path).unwrap();
     assert!(

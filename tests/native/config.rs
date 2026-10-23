@@ -1,4 +1,4 @@
-use komorebi_config::config::{read, schema_version, validate_native_bindings};
+use komorebi_config::config::{read, schema_version};
 use serde_json::{Value, json};
 use std::{
     fs,
@@ -75,49 +75,6 @@ fn schema_version_rejects_missing_malformed_and_foreign_urls() {
     ] {
         assert!(schema_version(&json!({"$schema": schema})).is_err());
     }
-}
-
-#[test]
-fn hotkeys_continue_to_target_only_workspace_zero() {
-    validate_native_bindings(&root()).unwrap();
-    let keys = fs::read_to_string(root().join("whkdrc")).unwrap();
-    assert!(keys.lines().any(|line| line.trim() == ".shell cmd"));
-    for line in keys
-        .lines()
-        .filter(|line| line.contains("focus-workspace") || line.contains("move-to-workspace"))
-    {
-        assert!(line.trim_end().ends_with("workspace 0"));
-    }
-    assert!(keys.contains("komorebic replace-configuration"));
-    assert!(!keys.contains("reload-configuration"));
-}
-
-#[test]
-fn native_restart_requires_complete_native_hotkey_bindings() {
-    let temporary = tempfile::tempdir().unwrap();
-    fs::write(
-        temporary.path().join("whkdrc"),
-        ".shell cmd\nKOMOREBI_AUTOHOTKEY\n",
-    )
-    .unwrap();
-    assert!(validate_native_bindings(temporary.path()).is_err());
-    let binding = |direction| {
-        format!(
-            "alt + x : komorebic focus {direction} && start \"\" /b \"komorebi-config.exe\" move-cursor\n"
-        )
-    };
-    let keys = format!(
-        ".shell cmd\n{}",
-        ["left", "down", "up", "right"].map(binding).join("")
-    );
-    fs::write(temporary.path().join("whkdrc"), &keys).unwrap();
-    validate_native_bindings(temporary.path()).unwrap();
-    fs::write(
-        temporary.path().join("whkdrc"),
-        keys.replace(&binding("right"), ""),
-    )
-    .unwrap();
-    assert!(validate_native_bindings(temporary.path()).is_err());
 }
 
 #[test]

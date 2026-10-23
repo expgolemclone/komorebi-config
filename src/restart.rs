@@ -2,14 +2,14 @@ use crate::{
     config,
     log::Log,
     model::{self, Layout, Screen, Stability},
-    process::{self, Invocation, Job},
+    process::{self, Job},
     windows::{
         display::{self, Adapter},
         poll, processes,
     },
 };
 use anyhow::{Context, Result, bail, ensure};
-use std::{env, ffi::OsString, path::PathBuf, time::Duration};
+use std::{env, ffi::OsString, path::PathBuf, process::Command, time::Duration};
 use windows::{
     Win32::System::Registry::{HKEY_CURRENT_USER, REG_DWORD, RegSetKeyValueW},
     core::w,
@@ -61,7 +61,8 @@ pub struct Native<'a> {
 }
 
 pub struct Prepared {
-    command: Invocation,
+    komorebic: PathBuf,
+    path: OsString,
     screens: Vec<Screen>,
     managed: Vec<PathBuf>,
     stop: Vec<PathBuf>,
@@ -85,6 +86,16 @@ fn single_process(count: usize) -> Result<bool> {
 }
 
 impl Native<'_> {
+    fn komorebic(&self, prepared: &Prepared, arguments: &[&str]) -> Command {
+        let mut command = Command::new(&prepared.komorebic);
+        command
+            .args(arguments)
+            .env("PATH", &prepared.path)
+            .env("KOMOREBI_CONFIG_HOME", &self.root)
+            .env("WHKD_CONFIG_HOME", &self.root);
+        command
+    }
+
     fn command(
         &self,
         prepared: &Prepared,
@@ -93,7 +104,7 @@ impl Native<'_> {
     ) -> Result<Vec<u8>> {
         self.log
             .event(format!("komorebic: {}", arguments.join(" ")))?;
-        process::capture(&prepared.command.clone().args(arguments), timeout)
+        process::capture(self.komorebic(prepared, arguments), timeout)
     }
 }
 
@@ -103,8 +114,7 @@ impl Backend for Native<'_> {
 
     fn prepare(&self, recover: bool) -> Result<Prepared> {
         self.log.event("preflight")?;
-        config::validate_native_bindings(&self.root)?;
-        let executable = config::current_executable()?;
+        let executable = env::current_exe().context("resolving the running native helper")?;
         let configuration = config::read(&self.root)?;
         let version = config::schema_version(&configuration)?;
         let komorebic = installed("komorebic.exe")?;
@@ -131,31 +141,7 @@ impl Backend for Native<'_> {
                 directories.push(directory);
             }
         }
-        let command = Invocation::new(&komorebic)
-            .env("PATH", Some(env::join_paths(directories)?))
-            .env("KOMOREBI_CONFIG_HOME", Some(&self.root))
-            .env("WHKD_CONFIG_HOME", Some(&self.root))
-            .env("KOMOREBI_AUTOHOTKEY", None::<&str>);
-        let actual = process::capture(
-            &command.clone().args(["--version"]),
-            Duration::from_secs(10),
-        )?;
-        let actual = std::str::from_utf8(&actual)?;
-        ensure!(
-            actual.lines().next() == Some(format!("komorebic {version}").as_str()),
-            "installed komorebic version does not match configured schema {version}"
-        );
-        self.log
-            .event("validating configuration with installed komorebic")?;
-        process::capture(
-            &command.clone().args([
-                OsString::from("check"),
-                OsString::from("--komorebi-config"),
-                self.root.join("komorebi.json").into_os_string(),
-            ]),
-            Duration::from_secs(10),
-        )
-        .context("installed komorebic rejected the configuration before shutdown")?;
+        let path = env::join_paths(directories)?;
         let screens = display::screens()?;
         let (adapter, pnputil) = if recover {
             let adapters = display::healthy_adapters()?;
@@ -176,16 +162,33 @@ impl Backend for Native<'_> {
             .context("komorebi directory is missing")?
             .join("komorebi-bar.exe");
         let stop = vec![komorebi.clone(), whkd.clone(), bar];
-        // Detect conflicting same-session installations before any stop or setting mutation.
-        processes::find(&stop, false)?;
-        Ok(Prepared {
-            command,
+        let prepared = Prepared {
+            komorebic,
+            path,
             screens,
             managed: vec![komorebi, whkd],
             stop,
             adapter,
             pnputil,
-        })
+        };
+        let actual = process::capture(
+            self.komorebic(&prepared, &["--version"]),
+            Duration::from_secs(10),
+        )?;
+        let actual = std::str::from_utf8(&actual)?;
+        ensure!(
+            actual.lines().next() == Some(format!("komorebic {version}").as_str()),
+            "installed komorebic version does not match configured schema {version}"
+        );
+        self.log
+            .event("validating configuration with installed komorebic")?;
+        let mut check = self.komorebic(&prepared, &["check", "--komorebi-config"]);
+        check.arg(self.root.join("komorebi.json"));
+        process::capture(check, Duration::from_secs(10))
+            .context("installed komorebic rejected the configuration before shutdown")?;
+        // Detect conflicting same-session installations before any stop or setting mutation.
+        processes::find(&prepared.stop, false)?;
+        Ok(prepared)
     }
 
     fn stop(&self, prepared: &Prepared) -> Result<()> {
@@ -216,13 +219,11 @@ impl Backend for Native<'_> {
             .context("PnPUtil was not prepared")?;
         self.log
             .event(format!("recovering display adapter {}", adapter.instance))?;
-        process::capture(
-            &Invocation::new(pnputil).args([
-                OsString::from("/restart-device"),
-                display::adapter_argument(adapter)?,
-            ]),
-            Duration::from_secs(60),
-        )?;
+        let mut command = Command::new(pnputil);
+        command
+            .arg("/restart-device")
+            .arg(display::adapter_argument(adapter)?);
+        process::capture(command, Duration::from_secs(60))?;
         let mut stable = Stability::default();
         let mut last_sample = String::new();
         poll(Duration::from_secs(30), Duration::from_millis(200), |_| {
@@ -247,11 +248,10 @@ impl Backend for Native<'_> {
         })?;
         self.log
             .event("restarting Windows Night Light (DisplayEnhancementService)")?;
-        process::capture(
-            &Invocation::new(env::current_exe()?).args(["night-light-worker"]),
-            Duration::from_secs(10),
-        )
-        .context("bounded Night Light recovery")?;
+        let mut command = Command::new(env::current_exe()?);
+        command.arg("night-light-worker");
+        process::capture(command, Duration::from_secs(10))
+            .context("bounded Night Light recovery")?;
         Ok(())
     }
 
@@ -259,10 +259,7 @@ impl Backend for Native<'_> {
         self.log
             .event("starting komorebi with upstream background launcher")?;
         let attempt = process::launch(
-            &prepared
-                .command
-                .clone()
-                .args(["start", "--clean-state", "--whkd"]),
+            self.komorebic(prepared, &["start", "--clean-state", "--whkd"]),
             Duration::from_secs(15),
             &self.log.output()?,
         )?;

@@ -1,22 +1,25 @@
 use komorebi_config::{
-    config, model,
-    process::{Invocation, capture},
+    config,
+    log::Log,
+    model,
+    process::capture,
+    restart::{Backend, Native},
     windows::{display, processes},
 };
 use serde_json::{Value, json};
-use std::time::Duration;
+use std::{fs, path::Path, process::Command, time::Duration};
+
+fn komorebic(arguments: &[&str]) -> Command {
+    let mut command = Command::new(which::which("komorebic.exe").unwrap());
+    command.args(arguments);
+    command
+}
 
 #[test]
 fn installed_schema_accepts_the_configuration() {
-    let root = config::directory(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let root = config::directory(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
     let configuration = config::read(&root).unwrap();
-    let command = which::which("komorebic").unwrap();
-    let invocation = Invocation::new(&command);
-    let version = capture(
-        &invocation.clone().args(["--version"]),
-        Duration::from_secs(10),
-    )
-    .unwrap();
+    let version = capture(komorebic(&["--version"]), Duration::from_secs(10)).unwrap();
     assert_eq!(
         std::str::from_utf8(&version)
             .unwrap()
@@ -30,7 +33,7 @@ fn installed_schema_accepts_the_configuration() {
     );
     let schema: Value = serde_json::from_slice(
         &capture(
-            &invocation.args(["static-config-schema"]),
+            komorebic(&["static-config-schema"]),
             Duration::from_secs(10),
         )
         .unwrap(),
@@ -44,36 +47,48 @@ fn installed_schema_accepts_the_configuration() {
 
 #[test]
 fn installed_preflight_rejects_invalid_configuration() {
-    let root = config::directory(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
-    let invocation = Invocation::new(which::which("komorebic").unwrap())
-        .env("KOMOREBI_CONFIG_HOME", Some(&root))
-        .env("WHKD_CONFIG_HOME", Some(&root));
+    let root = config::directory(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
     let temporary = tempfile::tempdir().unwrap();
     let invalid = temporary.path().join("invalid.json");
-    std::fs::write(&invalid, br#"{"border_width":"not a number"}"#).unwrap();
-    let result = capture(
-        &invocation.args([
-            std::ffi::OsString::from("check"),
-            "--komorebi-config".into(),
-            invalid.into_os_string(),
-        ]),
-        Duration::from_secs(10),
-    );
+    fs::write(&invalid, br#"{"border_width":"not a number"}"#).unwrap();
+    let mut command = komorebic(&["check", "--komorebi-config"]);
+    command
+        .arg(&invalid)
+        .env("KOMOREBI_CONFIG_HOME", &root)
+        .env("WHKD_CONFIG_HOME", &root);
+    let result = capture(command, Duration::from_secs(10));
     assert!(result.is_err());
     assert!(format!("{:#}", result.unwrap_err()).contains("not a number"));
 }
 
 #[test]
-fn live_daemon_monitors_layouts_processes_and_application_rules_match() {
-    let invocation = Invocation::new(which::which("komorebic").unwrap());
-    let screens = display::screens().unwrap();
-    let monitor_json = capture(
-        &invocation.clone().args(["monitor-information"]),
-        Duration::from_secs(10),
+fn restart_preflight_accepts_hotkey_command_whitespace_changes() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let temporary = tempfile::tempdir().unwrap();
+    fs::copy(
+        root.join("komorebi.json"),
+        temporary.path().join("komorebi.json"),
     )
     .unwrap();
+    let keys = fs::read_to_string(root.join("whkdrc")).unwrap();
+    let formatted = keys.replace("komorebic ", "komorebic  ");
+    assert_ne!(keys, formatted);
+    fs::write(temporary.path().join("whkdrc"), formatted).unwrap();
+    let log = Log::open(&temporary.path().join("restart.log")).unwrap();
+    let native = Native {
+        root: config::directory(temporary.path()).unwrap(),
+        log: &log,
+    };
+    native.prepare(false).unwrap();
+}
+
+#[test]
+fn live_daemon_monitors_layouts_processes_and_application_rules_match() {
+    let screens = display::screens().unwrap();
+    let monitor_json =
+        capture(komorebic(&["monitor-information"]), Duration::from_secs(10)).unwrap();
     let layouts = model::layouts(&model::monitor_sizes(&monitor_json).unwrap(), &screens).unwrap();
-    let state = capture(&invocation.clone().args(["state"]), Duration::from_secs(10)).unwrap();
+    let state = capture(komorebic(&["state"]), Duration::from_secs(10)).unwrap();
     model::verify_state(&state, &screens, &layouts).unwrap();
     let managed = [
         which::which("komorebi.exe")
@@ -94,7 +109,7 @@ fn live_daemon_monitors_layouts_processes_and_application_rules_match() {
         );
     }
     let global: Value = serde_json::from_slice(
-        &capture(&invocation.args(["global-state"]), Duration::from_secs(10)).unwrap(),
+        &capture(komorebic(&["global-state"]), Duration::from_secs(10)).unwrap(),
     )
     .unwrap();
     for executable in ["EXCEL.EXE", "POWERPNT.EXE", "WINWORD.EXE"] {

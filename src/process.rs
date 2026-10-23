@@ -1,10 +1,8 @@
 use anyhow::{Context, Result, bail, ensure};
 use process_wrap::std::{ChildWrapper, CommandWrap, CreationFlags, JobObject};
 use std::{
-    ffi::{OsStr, OsString},
     fs::File,
     io::{Read, Seek, SeekFrom},
-    path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
     thread,
     time::{Duration, Instant},
@@ -14,60 +12,14 @@ use windows::Win32::System::Threading::CREATE_NO_WINDOW;
 const OUTPUT_LIMIT: u64 = 1024 * 1024;
 const POLL: Duration = Duration::from_millis(10);
 
-#[derive(Clone, Debug)]
-pub struct Invocation {
-    pub program: PathBuf,
-    pub arguments: Vec<OsString>,
-    pub environment: Vec<(OsString, Option<OsString>)>,
-}
-
-impl Invocation {
-    pub fn new(program: impl AsRef<Path>) -> Self {
-        Self {
-            program: program.as_ref().to_owned(),
-            arguments: Vec::new(),
-            environment: Vec::new(),
-        }
-    }
-
-    pub fn args(mut self, args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Self {
-        self.arguments
-            .extend(args.into_iter().map(|arg| arg.as_ref().to_owned()));
-        self
-    }
-
-    pub fn env(mut self, name: impl AsRef<OsStr>, value: Option<impl AsRef<OsStr>>) -> Self {
-        self.environment.push((
-            name.as_ref().to_owned(),
-            value.map(|value| value.as_ref().to_owned()),
-        ));
-        self
-    }
-
-    fn command(&self) -> Command {
-        let mut command = Command::new(&self.program);
-        command.args(&self.arguments).stdin(Stdio::null());
-        for (name, value) in &self.environment {
-            match value {
-                Some(value) => {
-                    command.env(name, value);
-                }
-                None => {
-                    command.env_remove(name);
-                }
-            }
-        }
-        command
-    }
-}
-
 pub struct Job {
     child: Box<dyn ChildWrapper>,
     armed: bool,
 }
 
 impl Job {
-    fn spawn(command: Command) -> Result<Self> {
+    fn spawn(mut command: Command) -> Result<Self> {
+        command.stdin(Stdio::null());
         let mut command = CommandWrap::from(command);
         let child = command
             .wrap(CreationFlags(CREATE_NO_WINDOW))
@@ -142,15 +94,14 @@ fn read_capture(file: &mut File) -> Result<Vec<u8>> {
     Ok(output)
 }
 
-pub fn capture(invocation: &Invocation, timeout: Duration) -> Result<Vec<u8>> {
+pub fn capture(mut command: Command, timeout: Duration) -> Result<Vec<u8>> {
+    let program = command.get_program().to_string_lossy().into_owned();
     let mut stdout = tempfile::tempfile().context("creating stdout capture")?;
     let mut stderr = tempfile::tempfile().context("creating stderr capture")?;
-    let mut command = invocation.command();
     command
         .stdout(stdout.try_clone()?)
         .stderr(stderr.try_clone()?);
-    let mut job = Job::spawn(command)
-        .with_context(|| format!("launching {}", invocation.program.display()))?;
+    let mut job = Job::spawn(command).with_context(|| format!("launching {program}"))?;
     let result = job.wait_root(timeout, || {
         ensure!(
             stdout.metadata()?.len() <= OUTPUT_LIMIT && stderr.metadata()?.len() <= OUTPUT_LIMIT,
@@ -162,7 +113,7 @@ pub fn capture(invocation: &Invocation, timeout: Duration) -> Result<Vec<u8>> {
     let status = match (result, cleanup) {
         (Ok(status), Ok(())) => status,
         (Err(error), Ok(())) => {
-            return Err(error).with_context(|| format!("running {}", invocation.program.display()));
+            return Err(error).with_context(|| format!("running {program}"));
         }
         (Ok(_), Err(error)) => return Err(error),
         (Err(error), Err(cleanup)) => bail!("{error:#}; child cleanup also failed: {cleanup:#}"),
@@ -171,8 +122,7 @@ pub fn capture(invocation: &Invocation, timeout: Duration) -> Result<Vec<u8>> {
     let stderr = read_capture(&mut stderr)?;
     ensure!(
         status.success(),
-        "{} failed with exit code {:?}; stdout: {}; stderr: {}",
-        invocation.program.display(),
+        "{program} failed with exit code {:?}; stdout: {}; stderr: {}",
         status.code(),
         String::from_utf8_lossy(&stdout).trim(),
         String::from_utf8_lossy(&stderr).trim()
@@ -180,8 +130,7 @@ pub fn capture(invocation: &Invocation, timeout: Duration) -> Result<Vec<u8>> {
     Ok(stdout)
 }
 
-pub fn launch(invocation: &Invocation, timeout: Duration, log: &File) -> Result<Job> {
-    let mut command = invocation.command();
+pub fn launch(mut command: Command, timeout: Duration, log: &File) -> Result<Job> {
     // Files, never pipes: launched daemons may inherit these handles after this process exits.
     command.stdout(log.try_clone()?).stderr(log.try_clone()?);
     let mut job = Job::spawn(command)?;

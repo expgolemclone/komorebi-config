@@ -56,17 +56,20 @@ fn main() {
                 .append(true)
                 .open(&args[2])
                 .unwrap();
-            let job = komorebi_config::process::launch(
-                &komorebi_config::process::Invocation::new(env::current_exe().unwrap())
-                    .args(["tree", &args[1]]),
-                Duration::from_secs(5),
-                &log,
-            )
-            .unwrap();
+            let mut command = Command::new(env::current_exe().unwrap());
+            command.args(["tree", &args[1]]);
+            let job =
+                komorebi_config::process::launch(command, Duration::from_secs(5), &log).unwrap();
             if args[0] == "nested-stay" {
                 thread::sleep(Duration::from_secs(60));
             }
             job.release();
+        }
+        "working-directory" => {
+            print!(
+                "{}",
+                serde_json::to_string(&env::current_dir().unwrap()).unwrap()
+            );
         }
         "environment" => print!("{}", env::var(&args[1]).unwrap_or_default()),
         "lock" => {

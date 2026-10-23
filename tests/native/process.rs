@@ -1,9 +1,6 @@
-use komorebi_config::{
-    log::Log,
-    process::{self, Invocation},
-    windows::privilege::RestartLock,
-};
+use komorebi_config::{log::Log, process, windows::privilege::RestartLock};
 use std::{
+    ffi::OsStr,
     fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -21,8 +18,10 @@ use windows::Win32::{
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_process-fixture"))
 }
-fn command(arguments: &[&str]) -> Invocation {
-    Invocation::new(fixture()).args(arguments)
+fn command(arguments: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Command {
+    let mut command = Command::new(fixture());
+    command.args(arguments);
+    command
 }
 
 fn read_pid(path: &Path) -> u32 {
@@ -102,8 +101,9 @@ fn native_argv_preserves_unicode_spaces_quotes_empty_and_trailing_slashes() {
         "& | % $ ;",
         "\\\\server\\share\\",
     ];
-    let result =
-        process::capture(&command(&["arguments"]).args(args), Duration::from_secs(5)).unwrap();
+    let mut command = command(["arguments"]);
+    command.args(args);
+    let result = process::capture(command, Duration::from_secs(5)).unwrap();
     assert_eq!(
         serde_json::from_slice::<Vec<String>>(&result).unwrap(),
         args
@@ -112,7 +112,7 @@ fn native_argv_preserves_unicode_spaces_quotes_empty_and_trailing_slashes() {
 
 #[test]
 fn failure_contains_exit_code_and_both_output_streams() {
-    let error = process::capture(&command(&["failure"]), Duration::from_secs(5)).unwrap_err();
+    let error = process::capture(command(["failure"]), Duration::from_secs(5)).unwrap_err();
     let detail = format!("{error:#}");
     for expected in ["7", "stdout: output detail", "stderr: error detail"] {
         assert!(detail.contains(expected), "{detail}");
@@ -122,7 +122,7 @@ fn failure_contains_exit_code_and_both_output_streams() {
 #[test]
 fn excessive_output_fails_without_unbounded_memory_or_deadlock() {
     let started = Instant::now();
-    let error = process::capture(&command(&["flood"]), Duration::from_secs(5)).unwrap_err();
+    let error = process::capture(command(["flood"]), Duration::from_secs(5)).unwrap_err();
     assert!(format!("{error:#}").contains("output limit"));
     assert!(started.elapsed() < Duration::from_secs(8));
 }
@@ -131,8 +131,8 @@ fn excessive_output_fails_without_unbounded_memory_or_deadlock() {
 fn timeout_terminates_the_entire_owned_tree() {
     let temporary = tempfile::tempdir().unwrap();
     let pid_file = temporary.path().join("descendant.pid");
-    let invocation = command(&["tree"]).args([pid_file.as_os_str(), std::ffi::OsStr::new("stay")]);
-    let error = process::capture(&invocation, Duration::from_millis(1500)).unwrap_err();
+    let command = command([OsStr::new("tree"), pid_file.as_os_str(), OsStr::new("stay")]);
+    let error = process::capture(command, Duration::from_millis(1500)).unwrap_err();
     assert!(format!("{error:#}").contains("timed out"));
     let descendant = Descendant(read_pid(&pid_file));
     assert_ended(descendant.0);
@@ -143,7 +143,7 @@ fn completed_finite_command_does_not_leave_background_children() {
     let temporary = tempfile::tempdir().unwrap();
     let pid_file = temporary.path().join("descendant.pid");
     process::capture(
-        &command(&["tree"]).args([pid_file.as_os_str()]),
+        command([OsStr::new("tree"), pid_file.as_os_str()]),
         Duration::from_secs(5),
     )
     .unwrap();
@@ -158,7 +158,7 @@ fn launcher_failure_and_later_postflight_failure_reap_descendants() {
     for mode in ["failed-tree", "tree"] {
         let pid_file = temporary.path().join(format!("{mode}.pid"));
         let result = process::launch(
-            &command(&[mode]).args([pid_file.as_os_str()]),
+            command([OsStr::new(mode), pid_file.as_os_str()]),
             Duration::from_secs(5),
             &log.output().unwrap(),
         );
@@ -179,7 +179,7 @@ fn successful_handoff_survives_later_launches_without_waiting_for_daemon_eof() {
     let pid_file = temporary.path().join("descendant.pid");
     let started = Instant::now();
     let job = process::launch(
-        &command(&["tree"]).args([pid_file.as_os_str()]),
+        command([OsStr::new("tree"), pid_file.as_os_str()]),
         Duration::from_secs(5),
         &log.output().unwrap(),
     )
@@ -188,7 +188,7 @@ fn successful_handoff_survives_later_launches_without_waiting_for_daemon_eof() {
     assert!(!ended(descendant.0));
     assert!(started.elapsed() < Duration::from_secs(5));
     job.release();
-    process::capture(&command(&["arguments", "later"]), Duration::from_secs(5)).unwrap();
+    process::capture(command(["arguments", "later"]), Duration::from_secs(5)).unwrap();
     assert!(
         !ended(descendant.0),
         "later launch reaped a successfully handed-off tree"
@@ -202,7 +202,11 @@ fn nested_native_jobs_remain_owned_by_the_outer_attempt() {
     let log_path = temporary.path().join("restart.log");
     let log = Log::open(&log_path).unwrap();
     let job = process::launch(
-        &command(&["nested-tree"]).args([pid_file.as_os_str(), log_path.as_os_str()]),
+        command([
+            OsStr::new("nested-tree"),
+            pid_file.as_os_str(),
+            log_path.as_os_str(),
+        ]),
         Duration::from_secs(5),
         &log.output().unwrap(),
     )
@@ -216,35 +220,37 @@ fn nested_native_jobs_remain_owned_by_the_outer_attempt() {
 #[cfg(feature = "live-tests")]
 fn supervisor_case(mode: &str, seconds: &str, succeeds: bool) {
     let temporary = tempfile::tempdir().unwrap();
-    let local = std::env::var_os("LOCALAPPDATA").unwrap();
-    let runner = PathBuf::from(local).join("task-scheduler-management/bin/task-runner.exe");
-    assert!(
-        runner.is_file(),
-        "installed task-runner is required for this explicit test"
-    );
+    let runner = which::which("task-runner.exe")
+        .expect("task-runner.exe must be installed and on PATH for live tests");
     let pid_file = temporary.path().join("descendant.pid");
     let log_path = temporary.path().join("native.log");
     let report = temporary.path().join("report.json");
     let log = Log::open(&log_path).unwrap();
-    let invocation = Invocation::new(runner).args([
-        std::ffi::OsString::from("--task-identity"),
-        format!("\\NativeKomorebiTest-{mode}-{}", std::process::id()).into(),
-        "--program".into(),
-        fixture().into_os_string(),
-        "--handoff".into(),
-        "--attempt-timeout-seconds".into(),
-        seconds.into(),
-        "--action-working-directory".into(),
-        temporary.path().as_os_str().to_owned(),
-        "--report-path".into(),
-        report.clone().into_os_string(),
-        "--log-path".into(),
-        temporary.path().join("supervisor.log").into_os_string(),
-        format!("--arg={mode}").into(),
-        format!("--arg={}", pid_file.display()).into(),
-        format!("--arg={}", log_path.display()).into(),
-    ]);
-    let job = process::launch(&invocation, Duration::from_secs(15), &log.output().unwrap());
+    let mut command = Command::new(runner);
+    command
+        .args(["run", "--task-identity"])
+        .arg(format!(
+            "\\NativeKomorebiTest-{mode}-{}",
+            std::process::id()
+        ))
+        .arg("--program")
+        .arg(fixture())
+        .arg("--handoff")
+        .args(["--attempt-timeout-seconds", seconds])
+        .arg("--working-directory")
+        .arg(temporary.path())
+        .arg("--state-directory")
+        .arg(temporary.path())
+        .arg("--report-path")
+        .arg(&report)
+        .arg("--log-path")
+        .arg(temporary.path().join("supervisor.log"))
+        .args(["--arg", mode])
+        .arg("--arg")
+        .arg(&pid_file)
+        .arg("--arg")
+        .arg(&log_path);
+    let job = process::launch(command, Duration::from_secs(15), &log.output().unwrap());
     let descendant = Descendant(read_pid(&pid_file));
     let report: serde_json::Value = serde_json::from_slice(&fs::read(report).unwrap()).unwrap();
     if succeeds {
@@ -272,16 +278,19 @@ fn installed_supervisor_timeout_reaps_nested_native_jobs() {
 }
 
 #[test]
-fn child_environment_is_scoped_and_can_remove_legacy_variables() {
-    let invocation = command(&["environment", "KOMOREBI_TEST_ONLY"])
-        .env("KOMOREBI_TEST_ONLY", Some("child value"));
+fn child_environment_is_scoped_and_can_remove_variables() {
+    let mut child = command(["environment", "KOMOREBI_TEST_ONLY"]);
+    child.env("KOMOREBI_TEST_ONLY", "child value");
     assert_eq!(
-        process::capture(&invocation, Duration::from_secs(5)).unwrap(),
+        process::capture(child, Duration::from_secs(5)).unwrap(),
         b"child value"
     );
-    let cleared = invocation.env("KOMOREBI_TEST_ONLY", None::<&str>);
+    let mut cleared = command(["environment", "KOMOREBI_TEST_ONLY"]);
+    cleared
+        .env("KOMOREBI_TEST_ONLY", "child value")
+        .env_remove("KOMOREBI_TEST_ONLY");
     assert!(
-        process::capture(&cleared, Duration::from_secs(5))
+        process::capture(cleared, Duration::from_secs(5))
             .unwrap()
             .is_empty()
     );
@@ -289,12 +298,27 @@ fn child_environment_is_scoped_and_can_remove_legacy_variables() {
 }
 
 #[test]
+fn native_command_preserves_its_working_directory() {
+    let temporary = tempfile::tempdir().unwrap();
+    let directory = temporary.path().join("日本語's working directory");
+    fs::create_dir(&directory).unwrap();
+    let mut command = command(["working-directory"]);
+    command.current_dir(&directory);
+    let output = process::capture(command, Duration::from_secs(5)).unwrap();
+    let actual: PathBuf = serde_json::from_slice(&output).unwrap();
+    assert_eq!(
+        actual.canonicalize().unwrap(),
+        directory.canonicalize().unwrap()
+    );
+}
+
+#[test]
 fn named_lock_serializes_separate_processes() {
     let name = format!("Local\\komorebi-fixture-{}", std::process::id());
     let guard = RestartLock::named(&name).unwrap().unwrap();
-    assert!(process::capture(&command(&["lock", &name]), Duration::from_secs(5)).is_err());
+    assert!(process::capture(command(["lock", &name]), Duration::from_secs(5)).is_err());
     drop(guard);
-    process::capture(&command(&["lock", &name]), Duration::from_secs(5)).unwrap();
+    process::capture(command(["lock", &name]), Duration::from_secs(5)).unwrap();
 }
 
 #[test]

@@ -16,18 +16,6 @@ Restart requests administrator privileges when necessary, validates configuratio
 
 `komorebi-config restart --config-directory C:/dev/settings/komorebi-config --recover-display` additionally resets the display adapter and restarts the Night Light service. Use only for deliberate graphics recovery; displays briefly go dark.
 
-## Key bindings
-
-| Key | Action |
-| --- | --- |
-| Alt + Q / M | Close / minimize |
-| Alt + H/J/K/L | Focus left/down/up/right and move the cursor to the window's bottom center |
-| Alt + Shift + H/J/K/L | Move the window |
-| Alt + T / Shift + F | Toggle floating / monocle |
-| Alt + 1 / Shift + 1 | Focus workspace 0 / move to workspace 0 |
-| Alt + O | Restart whkd |
-| Alt + Shift + O | Replace the running configuration |
-
 See [whkdrc](whkdrc) for all bindings. The cursor helper does not require AutoHotkey or elevation. Upstream komorebic retains its PowerShell dependency.
 
 ## Tests

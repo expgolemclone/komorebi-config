@@ -38,37 +38,6 @@ pub fn read(root: &Path) -> Result<Value> {
         .context("invalid komorebi.json")
 }
 
-pub fn validate_native_bindings(root: &Path) -> Result<()> {
-    let content = fs::read_to_string(root.join("whkdrc")).context("reading whkdrc")?;
-    ensure!(
-        content.lines().any(|line| line.trim() == ".shell cmd"),
-        "whkdrc must use .shell cmd"
-    );
-    ensure!(
-        !content.contains("KOMOREBI_AUTOHOTKEY")
-            && !content.contains("move-cursor-bottom-center.ahk"),
-        "whkdrc must not reference retired AHK cursor helpers"
-    );
-    for direction in ["left", "down", "up", "right"] {
-        let action = format!(
-            r#"komorebic focus {direction} && start "" /b "komorebi-config.exe" move-cursor"#
-        );
-        ensure!(
-            content
-                .lines()
-                .filter(|line| !line.trim_start().starts_with('#'))
-                .filter_map(|line| line.split_once(':'))
-                .any(|(_, command)| command.trim() == action),
-            "whkdrc lacks the shared native cursor binding for {direction}"
-        );
-    }
-    Ok(())
-}
-
-pub fn current_executable() -> Result<PathBuf> {
-    env::current_exe().context("resolving the running native helper")
-}
-
 pub fn schema_version(config: &Value) -> Result<&str> {
     let schema = config["$schema"]
         .as_str()

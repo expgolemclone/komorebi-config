@@ -69,7 +69,6 @@ fn execute(operation: Operation) -> Result<u32> {
                 validate_identity(&identity, origin.as_ref())?;
                 // Reject incomplete configuration before UAC or stopping anything.
                 let root = config::directory(&config_directory)?;
-                config::validate_native_bindings(&root)?;
                 if !privilege::is_elevated()? {
                     ensure!(
                         origin.is_none(),

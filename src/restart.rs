@@ -15,6 +15,10 @@ use windows::{
     core::w,
 };
 
+const COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
+// Upstream startup includes system-wide process discovery and PowerShell launches.
+pub const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
+
 pub trait Backend {
     type Prepared;
     type Attempt;
@@ -171,10 +175,7 @@ impl Backend for Native<'_> {
             adapter,
             pnputil,
         };
-        let actual = process::capture(
-            self.komorebic(&prepared, &["--version"]),
-            Duration::from_secs(10),
-        )?;
+        let actual = process::capture(self.komorebic(&prepared, &["--version"]), COMMAND_TIMEOUT)?;
         let actual = std::str::from_utf8(&actual)?;
         ensure!(
             actual.lines().next() == Some(format!("komorebic {version}").as_str()),
@@ -184,7 +185,7 @@ impl Backend for Native<'_> {
             .event("validating configuration with installed komorebic")?;
         let mut check = self.komorebic(&prepared, &["check", "--komorebi-config"]);
         check.arg(self.root.join("komorebi.json"));
-        process::capture(check, Duration::from_secs(10))
+        process::capture(check, COMMAND_TIMEOUT)
             .context("installed komorebic rejected the configuration before shutdown")?;
         // Detect conflicting same-session installations before any stop or setting mutation.
         processes::find(&prepared.stop, false)?;
@@ -260,7 +261,7 @@ impl Backend for Native<'_> {
             .event("starting komorebi with upstream background launcher")?;
         let attempt = process::launch(
             self.komorebic(prepared, &["start", "--clean-state", "--whkd"]),
-            Duration::from_secs(15),
+            STARTUP_TIMEOUT,
             &self.log.output()?,
         )?;
         self.log.event(format!("upstream launcher PID {} exited successfully; retaining descendants until verification", attempt.id()))?;
@@ -329,7 +330,7 @@ impl Backend for Native<'_> {
                     "0",
                     layout.command(),
                 ],
-                Duration::from_secs(10),
+                COMMAND_TIMEOUT,
             )?;
         }
         Ok(())
@@ -341,7 +342,7 @@ impl Backend for Native<'_> {
             "physical monitor topology changed while applying layouts"
         );
         model::verify_state(
-            &self.command(prepared, &["state"], Duration::from_secs(10))?,
+            &self.command(prepared, &["state"], COMMAND_TIMEOUT)?,
             &prepared.screens,
             layouts,
         )?;

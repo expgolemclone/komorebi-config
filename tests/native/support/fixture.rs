@@ -27,7 +27,10 @@ fn main() {
             fs::write(&args[1], std::process::id().to_string()).unwrap();
             thread::sleep(Duration::from_secs(60));
         }
-        "tree" | "failed-tree" => {
+        "tree" | "failed-tree" | "slow-tree" => {
+            if args[0] == "slow-tree" {
+                thread::sleep(Duration::from_secs(16));
+            }
             let mut child = Command::new(env::current_exe().unwrap())
                 .args(["sleep", &args[1]])
                 .stdin(Stdio::null())

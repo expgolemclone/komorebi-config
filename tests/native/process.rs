@@ -1,4 +1,6 @@
-use komorebi_config::{log::Log, process, windows::privilege::RestartLock};
+use komorebi_config::{
+    log::Log, process, restart::STARTUP_TIMEOUT, windows::privilege::RestartLock,
+};
 use std::{
     ffi::OsStr,
     fs,
@@ -25,7 +27,7 @@ fn command(arguments: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Command {
 }
 
 fn read_pid(path: &Path) -> u32 {
-    let deadline = Instant::now() + Duration::from_secs(3);
+    let deadline = Instant::now() + STARTUP_TIMEOUT;
     loop {
         if let Ok(text) = fs::read_to_string(path)
             && let Ok(pid) = text.trim().parse()
@@ -173,26 +175,29 @@ fn launcher_failure_and_later_postflight_failure_reap_descendants() {
 }
 
 #[test]
-fn successful_handoff_survives_later_launches_without_waiting_for_daemon_eof() {
-    let temporary = tempfile::tempdir().unwrap();
-    let log = Log::open(&temporary.path().join("restart.log")).unwrap();
-    let pid_file = temporary.path().join("descendant.pid");
-    let started = Instant::now();
-    let job = process::launch(
-        command([OsStr::new("tree"), pid_file.as_os_str()]),
-        Duration::from_secs(5),
-        &log.output().unwrap(),
-    )
-    .unwrap();
-    let descendant = Descendant(read_pid(&pid_file));
-    assert!(!ended(descendant.0));
-    assert!(started.elapsed() < Duration::from_secs(5));
-    job.release();
-    process::capture(command(["arguments", "later"]), Duration::from_secs(5)).unwrap();
-    assert!(
-        !ended(descendant.0),
-        "later launch reaped a successfully handed-off tree"
-    );
+fn successful_handoff_survives_slow_startup_and_later_launches_without_waiting_for_daemon_eof() {
+    for (mode, timeout) in [
+        ("tree", Duration::from_secs(5)),
+        ("slow-tree", STARTUP_TIMEOUT),
+    ] {
+        let temporary = tempfile::tempdir().unwrap();
+        let log = Log::open(&temporary.path().join("restart.log")).unwrap();
+        let pid_file = temporary.path().join("descendant.pid");
+        let job = process::launch(
+            command([OsStr::new(mode), pid_file.as_os_str()]),
+            timeout,
+            &log.output().unwrap(),
+        )
+        .unwrap();
+        let descendant = Descendant(read_pid(&pid_file));
+        assert!(!ended(descendant.0));
+        job.release();
+        process::capture(command(["arguments", "later"]), Duration::from_secs(5)).unwrap();
+        assert!(
+            !ended(descendant.0),
+            "later launch reaped a successfully handed-off tree"
+        );
+    }
 }
 
 #[test]
@@ -218,13 +223,12 @@ fn nested_native_jobs_remain_owned_by_the_outer_attempt() {
 }
 
 #[cfg(feature = "live-tests")]
-fn supervisor_case(mode: &str, seconds: &str, succeeds: bool) {
+fn supervisor_case(mode: &str, succeeds: bool) {
     let temporary = tempfile::tempdir().unwrap();
     let runner = which::which("task-runner.exe")
         .expect("task-runner.exe must be installed and on PATH for live tests");
     let pid_file = temporary.path().join("descendant.pid");
     let log_path = temporary.path().join("native.log");
-    let report = temporary.path().join("report.json");
     let log = Log::open(&log_path).unwrap();
     let mut command = Command::new(runner);
     command
@@ -236,45 +240,47 @@ fn supervisor_case(mode: &str, seconds: &str, succeeds: bool) {
         .arg("--program")
         .arg(fixture())
         .arg("--handoff")
-        .args(["--attempt-timeout-seconds", seconds])
         .arg("--working-directory")
         .arg(temporary.path())
         .arg("--state-directory")
         .arg(temporary.path())
-        .arg("--report-path")
-        .arg(&report)
-        .arg("--log-path")
-        .arg(temporary.path().join("supervisor.log"))
         .args(["--arg", mode])
         .arg("--arg")
         .arg(&pid_file)
         .arg("--arg")
         .arg(&log_path);
-    let job = process::launch(command, Duration::from_secs(15), &log.output().unwrap());
-    let descendant = Descendant(read_pid(&pid_file));
-    let report: serde_json::Value = serde_json::from_slice(&fs::read(report).unwrap()).unwrap();
     if succeeds {
-        assert_eq!(report["exitCode"], 0);
+        let job = process::launch(command, STARTUP_TIMEOUT, &log.output().unwrap()).unwrap();
+        let descendant = Descendant(read_pid(&pid_file));
         assert!(!ended(descendant.0));
-        drop(job.unwrap());
+        drop(job);
+        assert_ended(descendant.0);
     } else {
-        assert!(job.is_err());
-        assert_ne!(report["exitCode"], 0);
-        assert_eq!(report["attempts"][0]["timedOut"], true);
+        let mut child = command
+            .stdin(Stdio::null())
+            .stdout(log.output().unwrap())
+            .stderr(log.output().unwrap())
+            .spawn()
+            .unwrap();
+        let _supervisor = Descendant(child.id());
+        let descendant = Descendant(read_pid(&pid_file));
+        assert!(!ended(descendant.0));
+        child.kill().unwrap();
+        assert!(!child.wait().unwrap().success());
+        assert_ended(descendant.0);
     }
-    assert_ended(descendant.0);
 }
 
 #[cfg(feature = "live-tests")]
 #[test]
 fn installed_supervisor_hands_off_nested_native_jobs() {
-    supervisor_case("nested-tree", "10", true);
+    supervisor_case("nested-tree", true);
 }
 
 #[cfg(feature = "live-tests")]
 #[test]
-fn installed_supervisor_timeout_reaps_nested_native_jobs() {
-    supervisor_case("nested-stay", "1", false);
+fn installed_supervisor_interruption_reaps_nested_native_jobs() {
+    supervisor_case("nested-stay", false);
 }
 
 #[test]

@@ -5,7 +5,19 @@
       "kind": "Class",
       "id": "ConsoleWindowClass",
       "matching_strategy": "Equals"
-    }
+    },
+    [
+      {
+        "kind": "Exe",
+        "id": "airi.exe",
+        "matching_strategy": "Equals"
+      },
+      {
+        "kind": "Title",
+        "id": "AIRI",
+        "matching_strategy": "Equals"
+      }
+    ]
   ],
   "ignore_rules": [
     {

@@ -37,7 +37,13 @@ fn configuration_preserves_console_office_outlook_and_libreoffice_rules() {
     let rule = |kind: &str, id: &str, strategy: &str| json!({"kind": kind, "id": id, "matching_strategy": strategy});
     assert_eq!(
         config["manage_rules"],
-        json!([rule("Class", "ConsoleWindowClass", "Equals")])
+        json!([
+            rule("Class", "ConsoleWindowClass", "Equals"),
+            [
+                rule("Exe", "airi.exe", "Equals"),
+                rule("Title", "AIRI", "Equals")
+            ]
+        ])
     );
     assert!(config["ignore_rules"].as_array().unwrap().contains(&rule(
         "Exe",

@@ -8,13 +8,9 @@ Monitors are detected automatically. Each uses workspace 0 with Columns on lands
 
 The scheduled task `\komorebi` is managed by [task-scheduler-management](https://github.com/expgolemclone/task-scheduler-management). It runs the installed helper through `task-runner.exe`, elevated, immediately after logon. Register or update it locally with the selected deployment profile. [AutoHotkey](https://github.com/expgolemclone/autohotkey) owns monitor-change restart requests, not this helper.
 
-```powershell
-komorebi-config restart --config-directory C:/dev/settings/komorebi-config
-```
-
 Restart requests administrator privileges when necessary, validates configuration, replaces komorebi/whkd, and verifies monitor layouts before releasing the daemons. It does not reset displays or start komorebi-bar. Logs: `%LOCALAPPDATA%/komorebi/restart.log`.
 
-`komorebi-config restart --config-directory C:/dev/settings/komorebi-config --recover-display` additionally resets the display adapter and restarts the Night Light service. Use only for deliberate graphics recovery; displays briefly go dark.
+The `--recover-display` option additionally resets the display adapter and restarts the Night Light service. Use only for deliberate graphics recovery; displays briefly go dark.
 
 See [whkdrc](whkdrc) for all bindings. The cursor helper does not require AutoHotkey or elevation. Upstream komorebic retains its PowerShell dependency.
 

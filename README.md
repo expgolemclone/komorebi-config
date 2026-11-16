@@ -12,7 +12,7 @@ Restart requests administrator privileges when necessary, validates configuratio
 
 The `--recover-display` option additionally resets the display adapter and restarts the Night Light service. Use only for deliberate graphics recovery; displays briefly go dark.
 
-See [whkdrc](whkdrc) for all bindings. The cursor helper does not require AutoHotkey or elevation. Upstream komorebic retains its PowerShell dependency.
+See [whkdrc](whkdrc) for all bindings. The cursor helper does not require AutoHotkey or elevation.
 
 ## Tests
 
@@ -22,13 +22,9 @@ cargo clippy --locked --all-targets --features live-tests -- -D warnings
 cargo test --locked --release --features process-tests
 ```
 
-Explicit read-only runtime checks and disposable tests under the installed supervisor:
-
 ```powershell
 cargo test --locked --release --features live-tests --test live --test process
 ```
-
-These tests do not restart the desktop, move the cursor, or reset displays.
 
 [komorebi]: https://github.com/LGUG2Z/komorebi
 [whkd]: https://github.com/LGUG2Z/whkd

@@ -61,8 +61,7 @@ fn main() {
                 .unwrap();
             let mut command = Command::new(env::current_exe().unwrap());
             command.args(["tree", &args[1]]);
-            let job =
-                komorebi_config::process::launch(command, Duration::from_secs(5), &log).unwrap();
+            let job = komorebi_config::process::start(command, &log).unwrap();
             if args[0] == "nested-stay" {
                 thread::sleep(Duration::from_secs(60));
             }

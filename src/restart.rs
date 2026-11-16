@@ -9,14 +9,19 @@ use crate::{
     },
 };
 use anyhow::{Context, Result, bail, ensure};
-use std::{env, ffi::OsString, path::PathBuf, process::Command, time::Duration};
+use std::{
+    env,
+    ffi::OsString,
+    path::{Path, PathBuf},
+    process::Command,
+    time::Duration,
+};
 use windows::{
     Win32::System::Registry::{HKEY_CURRENT_USER, REG_DWORD, RegSetKeyValueW},
     core::w,
 };
 
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
-// Upstream startup includes system-wide process discovery and PowerShell launches.
 pub const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub trait Backend {
@@ -68,7 +73,7 @@ pub struct Prepared {
     komorebic: PathBuf,
     path: OsString,
     screens: Vec<Screen>,
-    managed: Vec<PathBuf>,
+    managed: [PathBuf; 2],
     stop: Vec<PathBuf>,
     adapter: Option<Adapter>,
     pnputil: Option<PathBuf>,
@@ -90,8 +95,8 @@ fn single_process(count: usize) -> Result<bool> {
 }
 
 impl Native<'_> {
-    fn komorebic(&self, prepared: &Prepared, arguments: &[&str]) -> Command {
-        let mut command = Command::new(&prepared.komorebic);
+    fn invocation(&self, prepared: &Prepared, program: &Path, arguments: &[&str]) -> Command {
+        let mut command = Command::new(program);
         command
             .args(arguments)
             .env("PATH", &prepared.path)
@@ -108,13 +113,16 @@ impl Native<'_> {
     ) -> Result<Vec<u8>> {
         self.log
             .event(format!("komorebic: {}", arguments.join(" ")))?;
-        process::capture(self.komorebic(prepared, arguments), timeout)
+        process::capture(
+            self.invocation(prepared, &prepared.komorebic, arguments),
+            timeout,
+        )
     }
 }
 
 impl Backend for Native<'_> {
     type Prepared = Prepared;
-    type Attempt = Job;
+    type Attempt = [Job; 2];
 
     fn prepare(&self, recover: bool) -> Result<Prepared> {
         self.log.event("preflight")?;
@@ -170,12 +178,15 @@ impl Backend for Native<'_> {
             komorebic,
             path,
             screens,
-            managed: vec![komorebi, whkd],
+            managed: [komorebi, whkd],
             stop,
             adapter,
             pnputil,
         };
-        let actual = process::capture(self.komorebic(&prepared, &["--version"]), COMMAND_TIMEOUT)?;
+        let actual = process::capture(
+            self.invocation(&prepared, &prepared.komorebic, &["--version"]),
+            COMMAND_TIMEOUT,
+        )?;
         let actual = std::str::from_utf8(&actual)?;
         ensure!(
             actual.lines().next() == Some(format!("komorebic {version}").as_str()),
@@ -183,7 +194,11 @@ impl Backend for Native<'_> {
         );
         self.log
             .event("validating configuration with installed komorebic")?;
-        let mut check = self.komorebic(&prepared, &["check", "--komorebi-config"]);
+        let mut check = self.invocation(
+            &prepared,
+            &prepared.komorebic,
+            &["check", "--komorebi-config"],
+        );
         check.arg(self.root.join("komorebi.json"));
         process::capture(check, COMMAND_TIMEOUT)
             .context("installed komorebic rejected the configuration before shutdown")?;
@@ -256,43 +271,46 @@ impl Backend for Native<'_> {
         Ok(())
     }
 
-    fn start(&self, prepared: &Prepared) -> Result<Job> {
-        self.log
-            .event("starting komorebi with upstream background launcher")?;
-        let attempt = process::launch(
-            self.komorebic(prepared, &["start", "--clean-state", "--whkd"]),
-            STARTUP_TIMEOUT,
-            &self.log.output()?,
+    fn start(&self, prepared: &Prepared) -> Result<[Job; 2]> {
+        self.log.event("starting komorebi and whkd directly")?;
+        let output = self.log.output()?;
+        let komorebi = process::start(
+            self.invocation(prepared, &prepared.managed[0], &["--clean-state"]),
+            &output,
         )?;
-        self.log.event(format!("upstream launcher PID {} exited successfully; retaining descendants until verification", attempt.id()))?;
-        Ok(attempt)
+        let whkd = process::start(
+            self.invocation(prepared, &prepared.managed[1], &[]),
+            &output,
+        )?;
+        self.log.event(format!(
+            "daemon PIDs {}, {}; retaining jobs until verification",
+            komorebi.id(),
+            whkd.id()
+        ))?;
+        Ok([komorebi, whkd])
     }
 
     fn ready(&self, prepared: &Prepared) -> Result<Vec<Layout>> {
         self.log.event("waiting for komorebi IPC")?;
         let mut failure = String::new();
-        let monitors = poll(
-            Duration::from_secs(15),
-            Duration::from_millis(200),
-            |remaining| {
-                let running = processes::find(&prepared.managed[..1], false)?;
-                if !single_process(running.len())? {
-                    failure = "komorebi has not started yet".into();
-                    return Ok(None);
+        let monitors = poll(STARTUP_TIMEOUT, Duration::from_millis(200), |remaining| {
+            let running = processes::find(&prepared.managed[..1], false)?;
+            if !single_process(running.len())? {
+                failure = "komorebi has not started yet".into();
+                return Ok(None);
+            }
+            match self.command(
+                prepared,
+                &["monitor-information"],
+                remaining.min(Duration::from_secs(2)),
+            ) {
+                Ok(json) => Ok(Some(model::monitor_sizes(&json)?)),
+                Err(error) => {
+                    failure = format!("{error:#}");
+                    Ok(None)
                 }
-                match self.command(
-                    prepared,
-                    &["monitor-information"],
-                    remaining.min(Duration::from_secs(2)),
-                ) {
-                    Ok(json) => Ok(Some(model::monitor_sizes(&json)?)),
-                    Err(error) => {
-                        failure = format!("{error:#}");
-                        Ok(None)
-                    }
-                }
-            },
-        )
+            }
+        })
         .with_context(|| format!("komorebi IPC failed readiness; last probe: {failure}"))?;
         self.log.event("waiting for managed processes")?;
         poll(Duration::from_secs(15), Duration::from_millis(200), |_| {
@@ -358,11 +376,16 @@ impl Backend for Native<'_> {
             .event("verified monitors, layouts, and managed processes")
     }
 
-    fn release(&self, attempt: Job) {
-        attempt.release();
+    fn release(&self, attempt: [Job; 2]) {
+        for job in attempt {
+            job.release();
+        }
     }
-    fn abort(&self, mut attempt: Job) -> Result<()> {
-        attempt.terminate()
+    fn abort(&self, attempt: [Job; 2]) -> Result<()> {
+        for mut job in attempt {
+            job.terminate()?;
+        }
+        Ok(())
     }
 }
 

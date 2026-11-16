@@ -3,7 +3,7 @@ use komorebi_config::{
     log::Log,
     model,
     process::capture,
-    restart::{Backend, Native},
+    restart::{self, Backend, Native},
     windows::{display, processes},
 };
 use serde_json::{Value, json};
@@ -83,7 +83,10 @@ fn restart_preflight_accepts_hotkey_command_whitespace_changes() {
 }
 
 #[test]
-fn live_daemon_monitors_layouts_processes_and_application_rules_match() {
+fn direct_restart_verifies_daemon_monitors_layouts_processes_and_application_rules() {
+    let root = config::directory(Path::new(env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let log = Log::application().unwrap();
+    restart::run(&Native { root, log: &log }, false).unwrap();
     let screens = display::screens().unwrap();
     let monitor_json =
         capture(komorebic(&["monitor-information"]), Duration::from_secs(10)).unwrap();

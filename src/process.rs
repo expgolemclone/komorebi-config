@@ -130,15 +130,8 @@ pub fn capture(mut command: Command, timeout: Duration) -> Result<Vec<u8>> {
     Ok(stdout)
 }
 
-pub fn launch(mut command: Command, timeout: Duration, log: &File) -> Result<Job> {
-    // Files, never pipes: launched daemons may inherit these handles after this process exits.
+pub fn start(mut command: Command, log: &File) -> Result<Job> {
+    // Files, never pipes: daemons retain these handles after the supervisor exits.
     command.stdout(log.try_clone()?).stderr(log.try_clone()?);
-    let mut job = Job::spawn(command)?;
-    let status = job.wait_root(timeout, || Ok(()))?;
-    ensure!(
-        status.success(),
-        "launcher failed with exit code {:?}; see application log",
-        status.code()
-    );
-    Ok(job)
+    Job::spawn(command)
 }

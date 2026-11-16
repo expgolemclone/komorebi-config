@@ -83,7 +83,7 @@ impl Drop for Descendant {
 }
 
 fn assert_ended(pid: u32) {
-    let deadline = Instant::now() + Duration::from_secs(3);
+    let deadline = Instant::now() + STARTUP_TIMEOUT;
     while !ended(pid) {
         assert!(
             Instant::now() < deadline,
@@ -154,38 +154,32 @@ fn completed_finite_command_does_not_leave_background_children() {
 }
 
 #[test]
-fn launcher_failure_and_later_postflight_failure_reap_descendants() {
+fn unverified_daemon_jobs_reap_descendants_even_after_the_root_exits() {
     let temporary = tempfile::tempdir().unwrap();
     let log = Log::open(&temporary.path().join("restart.log")).unwrap();
     for mode in ["failed-tree", "tree"] {
         let pid_file = temporary.path().join(format!("{mode}.pid"));
-        let result = process::launch(
+        let job = process::start(
             command([OsStr::new(mode), pid_file.as_os_str()]),
-            Duration::from_secs(5),
             &log.output().unwrap(),
-        );
-        if mode == "failed-tree" {
-            assert!(result.is_err());
-        } else {
-            drop(result.unwrap());
-        }
+        )
+        .unwrap();
         let descendant = Descendant(read_pid(&pid_file));
+        assert_ended(job.id());
+        assert!(!ended(descendant.0));
+        drop(job);
         assert_ended(descendant.0);
     }
 }
 
 #[test]
 fn successful_handoff_survives_slow_startup_and_later_launches_without_waiting_for_daemon_eof() {
-    for (mode, timeout) in [
-        ("tree", Duration::from_secs(5)),
-        ("slow-tree", STARTUP_TIMEOUT),
-    ] {
+    for mode in ["tree", "slow-tree"] {
         let temporary = tempfile::tempdir().unwrap();
         let log = Log::open(&temporary.path().join("restart.log")).unwrap();
         let pid_file = temporary.path().join("descendant.pid");
-        let job = process::launch(
+        let job = process::start(
             command([OsStr::new(mode), pid_file.as_os_str()]),
-            timeout,
             &log.output().unwrap(),
         )
         .unwrap();
@@ -201,18 +195,45 @@ fn successful_handoff_survives_slow_startup_and_later_launches_without_waiting_f
 }
 
 #[test]
+fn direct_daemon_jobs_stay_owned_until_verified_handoff() {
+    let temporary = tempfile::tempdir().unwrap();
+    let log = Log::open(&temporary.path().join("restart.log")).unwrap();
+    let mut jobs = Vec::new();
+    let mut daemons = Vec::new();
+    for name in ["komorebi", "whkd"] {
+        let pid_file = temporary.path().join(format!("{name}.pid"));
+        let job = process::start(
+            command([OsStr::new("sleep"), pid_file.as_os_str()]),
+            &log.output().unwrap(),
+        )
+        .unwrap();
+        let daemon = Descendant(read_pid(&pid_file));
+        assert_eq!(job.id(), daemon.0);
+        assert!(!ended(daemon.0));
+        jobs.push(job);
+        daemons.push(daemon);
+    }
+    let owned = jobs.pop().unwrap();
+    jobs.pop().unwrap().release();
+    drop(owned);
+    assert_ended(daemons[1].0);
+    assert!(!ended(daemons[0].0));
+    process::capture(command(["arguments", "later"]), Duration::from_secs(5)).unwrap();
+    assert!(!ended(daemons[0].0));
+}
+
+#[test]
 fn nested_native_jobs_remain_owned_by_the_outer_attempt() {
     let temporary = tempfile::tempdir().unwrap();
     let pid_file = temporary.path().join("descendant.pid");
     let log_path = temporary.path().join("restart.log");
     let log = Log::open(&log_path).unwrap();
-    let job = process::launch(
+    let job = process::start(
         command([
             OsStr::new("nested-tree"),
             pid_file.as_os_str(),
             log_path.as_os_str(),
         ]),
-        Duration::from_secs(5),
         &log.output().unwrap(),
     )
     .unwrap();
@@ -250,8 +271,9 @@ fn supervisor_case(mode: &str, succeeds: bool) {
         .arg("--arg")
         .arg(&log_path);
     if succeeds {
-        let job = process::launch(command, STARTUP_TIMEOUT, &log.output().unwrap()).unwrap();
+        let job = process::start(command, &log.output().unwrap()).unwrap();
         let descendant = Descendant(read_pid(&pid_file));
+        assert_ended(job.id());
         assert!(!ended(descendant.0));
         drop(job);
         assert_ended(descendant.0);

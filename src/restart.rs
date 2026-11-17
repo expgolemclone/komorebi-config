@@ -22,6 +22,7 @@ use windows::{
 };
 
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
+const LAUNCH_TIMEOUT: Duration = Duration::from_secs(120);
 pub const STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub trait Backend {
@@ -122,7 +123,7 @@ impl Native<'_> {
 
 impl Backend for Native<'_> {
     type Prepared = Prepared;
-    type Attempt = [Job; 2];
+    type Attempt = Job;
 
     fn prepare(&self, recover: bool) -> Result<Prepared> {
         self.log.event("preflight")?;
@@ -271,23 +272,25 @@ impl Backend for Native<'_> {
         Ok(())
     }
 
-    fn start(&self, prepared: &Prepared) -> Result<[Job; 2]> {
-        self.log.event("starting komorebi and whkd directly")?;
-        let output = self.log.output()?;
-        let komorebi = process::start(
-            self.invocation(prepared, &prepared.managed[0], &["--clean-state"]),
-            &output,
+    fn start(&self, prepared: &Prepared) -> Result<Job> {
+        // The upstream launcher supplies the hidden interactive startup required by
+        // komorebi's AllowSetForegroundWindow check. CREATE_NO_WINDOW is not equivalent.
+        self.log
+            .event("starting komorebi with upstream background launcher")?;
+        let mut attempt = process::start(
+            self.invocation(
+                prepared,
+                &prepared.komorebic,
+                &["start", "--clean-state", "--whkd"],
+            ),
+            &self.log.output()?,
         )?;
-        let whkd = process::start(
-            self.invocation(prepared, &prepared.managed[1], &[]),
-            &output,
-        )?;
+        attempt.wait_success(LAUNCH_TIMEOUT)?;
         self.log.event(format!(
-            "daemon PIDs {}, {}; retaining jobs until verification",
-            komorebi.id(),
-            whkd.id()
+            "upstream launcher PID {} exited successfully; retaining descendants until verification",
+            attempt.id()
         ))?;
-        Ok([komorebi, whkd])
+        Ok(attempt)
     }
 
     fn ready(&self, prepared: &Prepared) -> Result<Vec<Layout>> {
@@ -376,16 +379,11 @@ impl Backend for Native<'_> {
             .event("verified monitors, layouts, and managed processes")
     }
 
-    fn release(&self, attempt: [Job; 2]) {
-        for job in attempt {
-            job.release();
-        }
+    fn release(&self, attempt: Job) {
+        attempt.release();
     }
-    fn abort(&self, attempt: [Job; 2]) -> Result<()> {
-        for mut job in attempt {
-            job.terminate()?;
-        }
-        Ok(())
+    fn abort(&self, mut attempt: Job) -> Result<()> {
+        attempt.terminate()
     }
 }
 

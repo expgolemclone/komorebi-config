@@ -178,11 +178,12 @@ fn successful_handoff_survives_slow_startup_and_later_launches_without_waiting_f
         let temporary = tempfile::tempdir().unwrap();
         let log = Log::open(&temporary.path().join("restart.log")).unwrap();
         let pid_file = temporary.path().join("descendant.pid");
-        let job = process::start(
+        let mut job = process::start(
             command([OsStr::new(mode), pid_file.as_os_str()]),
             &log.output().unwrap(),
         )
         .unwrap();
+        job.wait_success(STARTUP_TIMEOUT).unwrap();
         let descendant = Descendant(read_pid(&pid_file));
         assert!(!ended(descendant.0));
         job.release();
@@ -192,6 +193,22 @@ fn successful_handoff_survives_slow_startup_and_later_launches_without_waiting_f
             "later launch reaped a successfully handed-off tree"
         );
     }
+}
+
+#[test]
+fn failed_launcher_preserves_ownership_until_cleanup() {
+    let temporary = tempfile::tempdir().unwrap();
+    let log = Log::open(&temporary.path().join("restart.log")).unwrap();
+    let pid_file = temporary.path().join("descendant.pid");
+    let mut job = process::start(
+        command([OsStr::new("failed-tree"), pid_file.as_os_str()]),
+        &log.output().unwrap(),
+    )
+    .unwrap();
+    let descendant = Descendant(read_pid(&pid_file));
+    assert!(format!("{:#}", job.wait_success(STARTUP_TIMEOUT).unwrap_err()).contains('9'));
+    drop(job);
+    assert_ended(descendant.0);
 }
 
 #[test]

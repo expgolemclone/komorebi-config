@@ -55,6 +55,16 @@ impl Job {
         }
     }
 
+    pub fn wait_success(&mut self, timeout: Duration) -> Result<()> {
+        let status = self.wait_root(timeout, || Ok(()))?;
+        ensure!(
+            status.success(),
+            "launcher failed with exit code {:?}; see application log",
+            status.code()
+        );
+        Ok(())
+    }
+
     pub fn terminate(&mut self) -> Result<()> {
         if self.armed {
             self.child.start_kill().context("terminating child job")?;
